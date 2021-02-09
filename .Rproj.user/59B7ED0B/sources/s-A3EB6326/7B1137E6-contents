@@ -1,0 +1,1924 @@
+# -------------------------------------------------------------
+# LMM PADDUS DATA Re-analysis 07.01.2021
+# Jolanta Rieksta
+
+# -------------------------------------------------------------
+
+#############Load libraries################
+.libPaths()
+.libPaths("C:/R Packages")
+Sys.setenv(LANGUAGE='en')
+suppressPackageStartupMessages({
+library(dplyr)
+library(HistData)
+library(vegan)
+library(devtools)
+library(tidyverse)
+library(scales)
+library(ggplot2)
+library(LabApplStat)
+library(emmeans)
+library(multcompView)
+library(Rmisc)
+library(sciplot)
+library(ggpubr)
+library(lme4)
+library(nlme)
+library(wesanderson)
+library(multcomp)
+library(readxl)
+library(plyr)
+library(RColorBrewer)
+library(dplyr)
+library(car)
+library(e1071)
+library(lme4)
+library(bbmle)
+library(generics)
+library(caret)
+library(leaps)
+library(emmeans)
+library(devtools)
+library(LabApplStat)
+library(sjmisc)
+library(sjPlot)
+library(ggpubr)
+library(viridisLite)
+library(viridis)
+library(treemap)
+library(shiny)
+library(esquisse)
+library(remotes)
+ library(ggpattern)
+})
+#################Load data##########
+
+setwd("C:/Users/lcm767/OneDrive - K?benhavns Universitet/Desktop/Projects/Paddus 2018")
+d1<- read_excel("Paddus to Tao_TAO_1412202020.xlsx", sheet = "Totals")
+d1$log(sum+1) <- log(d1$sum+1) 
+str(d1)
+d1$Date[d1$Date=="30.06.2018"] <- "June 30"
+d1$Date[d1$Date=="05.07.2018"] <- "July 5"
+d1$Date[d1$Date=="11.07.2018"] <- "July 11"
+
+names(d1)[names(d1) == "warming"] <- "treatment"
+
+#obtain averages per treatment and date
+means_groupsnstd<-ddply(d1,.(Date, trtmt,Compound_group,Compund_group_short,herbivory, treatment),summarize, N=length(sum), mean=mean(sum), sd=sd(sum),se=sd/sqrt(N) )
+names(d1)[names(d1) == "sum"] <- "concentration"
+
+
+groupsstd <-means_groupsnstd %>% 
+  filter(Compound_group!="Total")
+d<-ggplot(data=groupsstd , aes(x=trtmt, y=mean, fill=Compound_group)) +theme_classic()+
+  geom_bar(position="fill",stat="identity")+scale_y_continuous(labels = percent_format())+
+  facet_wrap(. ~ Date, ncol=3, nrow=1)+
+  labs(x=expression(Insect~density),
+   y=expression(Emission~rate~(~ng~cm^{"-2"}~h^{"-1"})))
+d
+
+
+#######################Figure parameters - level order, theme#####################
+level_order <- c('C','S', "W", 'C+H','S+H' ,"W+H" )
+GLV1$Date1 = factor(d1$Date, levels=c('June 30','July 5','July 11'))
+names(d1)[names(d1) == "sum"] <- "concentration"
+
+my_theme=theme(text = element_text(size=15),
+               panel.border = element_rect(colour = "black", fill=NA, size=0.5),
+               axis.text.x = element_text(size = 15),
+               axis.text.y = element_text(size = 15),
+               axis.title.x=element_blank(),
+               axis.title.y=element_blank())
+
+my_theme=theme(text = element_text(size=16),
+               panel.border = element_rect(colour = "black", fill=NA, size=0.5),
+               axis.text.x = element_text(size = 14),
+               axis.text.y = element_text(size = 14),
+               strip.text.x = element_text(size = 14),
+               strip.background = element_blank()
+)  
+
+my_theme=theme(text = element_text(size=16),
+               panel.border = element_rect(colour = "black", fill=NA, size=0.5),
+               axis.text.x = element_text(size = 17),
+               axis.text.y = element_text(size = 17),
+               strip.text.x = element_text(size = 14),
+               strip.background = element_blank()
+) 
+
+
+my_theme=theme(text = element_text(size=20),
+               panel.border = element_rect(colour = "black", fill=NA, size=0.5),
+               axis.text.x = element_text(size = 18),
+               axis.text.y = element_text(size = 18),
+               strip.text.x = element_text(size = 20),
+               strip.background = element_blank(),
+               axis.title.x=element_blank(),
+               axis.title.y=element_blank(),
+               
+) 
+
+
+
+my_theme=theme(text = element_text(size=14),
+               axis.text.x = element_text(size = 12),
+               axis.text.y = element_text(size = 12),
+               strip.text.x = element_text(size = 14),
+               strip.text.y  = element_text(size = 14),
+               panel.border = element_rect(colour = "black", fill=NA, size=0.5),
+               
+               strip.background = element_blank(),
+               axis.title.x=element_text(size = 14),
+               axis.title.y=element_text(size = 14),
+               
+) 
+
+theme_sqt=theme(text = element_text(size=20),
+                panel.border = element_rect(colour = "black", fill=NA, size=0.5),
+                axis.text.x = element_text(size = 18),
+                axis.text.y = element_text(size = 18),
+                strip.text.x = element_text(size = 20),
+                strip.background = element_blank(),
+                axis.title.x=element_text(size=20),
+                axis.title.y=element_blank(),
+                
+) 
+
+################# 13.01.2021 leaf damage and predicted leaf area LMMS!!!!!!!!!!!################
+
+#leaf damage was assessed at the end of the campaign. 
+d1<- read_excel("Paddus to Tao_TAO_1412202020.xlsx", sheet = "leaf_area")
+names(d1)[names(d1) == "warming...2"] <- "treatment"
+names(d1)[names(d1) == "herbivory...8"] <- "herbivory"
+
+names(d1)
+
+leaf_damage<-ddply(d1,.(treatment, herbivory),summarize, N=length(perc), mean=mean(perc), sd=sd(perc),se=sd/sqrt(N) )
+
+m0<-lmer(perc~treatment*herbivory+(1|Block/Plot),data=d1)
+drop1(m0,test="Chisq")
+drop1(m1 <- update(m0,.~.-treatment:herbivory),test="Chisq")
+anova(m1)
+summary(m1)
+
+
+#emmeans herbivory|Treatment
+y=emmeans(m1,~herbivory|treatment, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05)
+herbivory <- as.data.frame(y$emmeans)
+
+y=emmeans(m1,~herbivory, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05)
+herbivory <- as.data.frame(y$emmeans)
+
+ggplot(herbivory, aes(x=herbivory, y=emmean,  fill=treatment)) + 
+  geom_bar(stat="identity", color="grey",
+           position=position_dodge()) +
+  #facet_grid(Date1 ~ treatment, scales="free_y")+
+  facet_wrap( ~ treatment, ncol=9, nrow=6)+
+ 
+  theme_bw() +
+  geom_errorbar(aes(ymin = emmean, ymax = emmean+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) +
+  theme(axis.title = element_text(size=16),
+        axis.text = element_text(size=15),
+        legend.position = "none") +theme_classic()+theme(legend.position = "none")+
+  
+  scale_fill_manual(values = alpha(c("#f6d746", "#e55c30", "#2e1978"),.8))+my_theme+
+  labs(x=expression(Herbivory),
+       y=expression("Percentage of damaged leaves"))+
+  geom_col_pattern(  
+    
+    pattern_density = 0.01,  
+    pattern_fill    = 'grey49',  
+    pattern_colour  = 'grey49'  
+  ) +  
+  aes(pattern = herbivory)+
+  scale_pattern_fill_manual(
+    values = c("#f6d746", "#e55c30", "#2e1978"))+
+  geom_errorbar(aes(ymin = emmean, ymax = emmean+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) 
+
+
+
+
+level_order <- c('C','S', "W", 'C+H','S+H' ,"W+H" )
+
+
+a=ggplot(d1, aes(x=factor(trtmt,level = level_order), y=damaged.leaves,fill=trtmt)) + 
+  geom_boxplot()+stat_summary(fun=mean, geom="point", size=2,color="azure4")+theme_classic()+
+  labs(y="Number of damaged leaves / branch", x = "Treatment")+my_theme+scale_fill_viridis_d(option = "inferno",direction = -1)+
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="grey", fill="grey") +coord_flip()
+
+
+
+#EMMEANS
+y1 <- as.data.frame(y$emmeans)
+  ggplot(y1, aes(x=herbivory, y=emmean, fill=herbivory)) + 
+    geom_bar(stat="identity")  +
+    scale_fill_manual(values=c("#440154FF", "#DCE318FF")) +
+    theme_bw() +  labs(y="emmeans Average number of damaged leaves/ branch ", x="Herbivory") + facet_wrap(. ~ treatment, ncol=3, nrow=1,scales = "free_y")+
+    geom_errorbar(aes(ymin=emmean, ymax=emmean+SE), width=.2,color="azure4",
+                  position=position_dodge(.9)) +
+    #geom_text(nudge_y = 2, size=8) + 
+    #geom_text(vjust = 1, nudge_y = 1)+
+    theme(axis.title = element_text(size=16),
+          axis.text = element_text(size=15),
+          legend.position = "none")+my_theme+theme_classic()+theme(legend.position = "none")
+
+  leaf_damage2=leaf.damage
+ damaged.leaves = ggplot(leaf_damage2, aes(x=herbivory, y=mean, fill=herbivory)) + 
+    geom_bar(stat="identity")  +
+    #scale_fill_manual(values=c("#440154FF", "#DCE318FF")) +
+   scale_fill_manual(values = alpha(c("#440154FF", "#DCE318FF"), .5))+
+    theme_bw() +  labs(y="Average number of damaged leaves/ branch ", x="Herbivory") + facet_wrap(. ~ treatment, ncol=3, nrow=1)+
+    geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.2,
+                  position=position_dodge(.9)) +
+    #geom_text(nudge_y = 2, size=8) + 
+    #geom_text(vjust = 1, nudge_y = 1)+
+    theme(axis.title = element_text(size=16),
+          axis.text = element_text(size=15),
+          legend.position = "none")+my_theme+theme_classic()
+  library(scales)
+  show_col(viridis_pal()(20))
+  
+
+  #predicted leaf area
+  
+  #the leaf area in the herbivory treatment decreased over time. there was date:herbivory interaction, meaning the herbivory changed over time
+  #there was not herbivory: treatment interaction, meaning, the herbivory did not differ betweeen treatments
+  
+  leaf_area<-ddply(d1,.(trtmt, treatment, herbivory, Plot, Block, Date),summarize, N=length(predictedleafarea), mean=mean(predictedleafarea), sd=sd(predictedleafarea),se=sd/sqrt(N) )
+  leaf_area<-ddply(d1,.(trtmt,  Date),summarize, N=length(predictedleafarea), mean=mean(predictedleafarea), sd=sd(predictedleafarea),se=sd/sqrt(N) )
+  
+   m0<-lmer(mean~treatment*herbivory*Date+(1|Block/Plot),data=leaf_area)
+   m0=lme(mean~treatment*herbivory*Date, random=~1|Block/Plot, method="ML", data=leaf_area)
+   
+  plot(DD(mean~treatment*herbivory,random=~Block/Plot,data=leaf_damage))
+  
+  drop1(m0,test="Chisq")
+  drop1(m1 <- update(m0,.~.-treatment:herbivory:Date),test="Chisq")
+  drop1(m2 <- update(m1,.~.-treatment:Date),test="Chisq")
+  drop1(m3 <- update(m2,.~.-treatment:herbivory),test="Chisq")
+  
+  
+  tab_model(m0)
+  anova(m3)
+  summary(m3)
+  
+  plot(m3)
+  qqnorm(residuals(m3))
+  plot()
+  r.rmse <- sqrt(mean(residuals(m3)^2))
+  plot(fitted(m3),leaf_area$mean)
+  
+  emmeans(m3, specs=trt.vs.ctrl~Date|herbivory)
+  y=emmeans(m3,~Date|herbivory, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05)
+  
+  y=emmeans(m3, specs=trt.vs.ctrl~Date|herbivory)
+  
+#emmeans 
+  y1 <- as.data.frame(y$emmeans)
+  ggplot(y1, aes(x=factor(Date,level = level_order), y=emmean, fill=herbivory)) + 
+    geom_bar(stat="identity")  +
+    scale_fill_manual(values=c("#440154FF", "#DCE318FF")) +
+    theme_bw() +  labs(y="Predicted leaf area", x="Date") + facet_wrap(. ~ herbivory, ncol=3, nrow=1)+
+    geom_errorbar(aes(ymin=emmean-SE, ymax=emmean+SE), width=.2,
+                  position=position_dodge(.9)) +
+    #geom_text(nudge_y = 2, size=8) + 
+    #geom_text(vjust = 1, nudge_y = 1)+
+    theme(axis.title = element_text(size=16),
+          axis.text = element_text(size=15),
+          legend.position = "none")+theme_classic()+theme(legend.position = "none")+my_theme
+#real data 
+ real_predictedleafarea= ggplot(leaf_area_avg, aes(x=factor(Date,level = level_order), y=mean, fill=herbivory)) + 
+    geom_bar(stat="identity")  +
+    scale_fill_manual(values=c("#440154FF", "#DCE318FF")) +
+    theme_bw() +  labs(y="Predicted leaf area", x="Date") + facet_wrap(. ~ herbivory, ncol=3, nrow=1)+
+    geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.2,
+                  position=position_dodge(.9)) +
+    #geom_text(nudge_y = 2, size=8) + 
+    #geom_text(vjust = 1, nudge_y = 1)+
+    theme(axis.title = element_text(size=16),
+          axis.text = element_text(size=15),
+          legend.position = "none")+my_theme+theme_classic()+theme(legend.position = "none")
+  
+
+
+  leaf_area_avg<-ddply(d1,.(trtmt,herbivory, Date),summarize, N=length(predictedleafarea), mean=mean(predictedleafarea), sd=sd(predictedleafarea),se=sd/sqrt(N) )
+  leaf_area_avg<-ddply(d1,.(herbivory, Date),summarize, N=length(predictedleafarea), mean=mean(predictedleafarea), sd=sd(predictedleafarea),se=sd/sqrt(N) )
+  
+  leaf_area_avg$Date <- factor(leaf_area_avg$Date) 
+
+  
+  level_order <- c('June 30', 'July 5', 'July 11')
+  
+  
+  fid<-ggarrange(real_predictedleafarea,damaged.leaves,nrow=1, ncol=2, common.legend = TRUE,labels = c("A", "B"))
+  fid 
+  
+  
+##################################################################  
+  
+#####GRAPHS#############
+  library(ggpattern)
+  groupsnstd$Date1 = factor(groupsnstd$Date, levels=c('June 30','July 5','July 11'))
+  
+  
+groupsnstd <-means_groupsnstd %>% 
+  filter(Compound_group!="Total")
+totalnstd <- means_groupsnstd%>% 
+  filter(Compound_group=="Total")
+
+totalgg<-ggplot(data=groupsnstd,aes(x = factor(trtmt, level = level_order),fill=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date1, ncol=3, nrow=1,scales = "free_y")+scale_fill_brewer(palette="Paired")+my_theme+
+  geom_errorbar(data=totalnstd,aes(ymin= mean-se,
+                                   ymax= mean+se),
+                width=.2,                 
+                position="identity")+
+  ggtitle("Total VOCs")+ theme(legend.title = element_blank())+
+  labs(x=expression(Climate~treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+
+  
+totalgg
+
+totalnstd$Date1 = factor(totalnstd$Date, levels=c('June 30','July 5','July 11'))
+
+totalgg<-ggplot(data=totalnstd,aes(x = factor(trtmt, level = level_order), y=mean, pattern=treatment, fill=herbivory ))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date1, ncol=3, nrow=1,scales = "free_y")+
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"),0.8))+my_theme+
+ 
+  ggtitle("Total VOCs")+ theme(legend.title = element_blank())+
+  labs(x=expression(Climate~treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+
+  geom_col_pattern(  
+
+    pattern_density = 0.01,  
+    pattern_fill    = 'grey62',  
+    pattern_colour  = 'grey62'  
+  ) +  
+  aes(pattern = treatment)+
+  scale_pattern_fill_manual(
+    values = c("#440154FF", "#FDE725FF"))+
+  geom_errorbar(data=totalnstd,aes(ymin= mean-se,
+                                   ymax= mean+se),
+                width=.3,                 
+                position="identity")
+
+
+totalgg
+
+
+
+
+groupsnstd$treatment=as.factor(groupsnstd$treatment)
+
+
+benz=ggplot(July5, aes(x=herbivory, y=Indole, fill=herbivory)) +ggtitle("indole")+
+  facet_wrap(. ~ warming, ncol=3, nrow=1,scales = "free_y")+
+  geom_boxplot(alpha=0.5) +
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="black", fill="black") +
+  theme(legend.position="none") +
+  scale_fill_manual(values = alpha(c("#440154FF", "#DCE318FF"), .3))+theme_classic()+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+
+
+
+
+GLV<-subset(means_groupsnstd,(Compound_group=="green leaf volatile")) #Y
+HT<-subset(means_groupsnstd,(Compound_group=="HT")) #Y
+HC<-subset(means_groupsnstd,(Compound_group=="hydrocarbons"))
+ISO<-subset(means_groupsnstd,(Compound_group=="isoprenoids"))
+MT<-subset(means_groupsnstd,(Compound_group=="MT")) #Y
+other<-subset(means_groupsnstd,(Compound_group=="other"))
+OVOC<-subset(means_groupsnstd,(Compound_group=="oxygenated VOCs"))
+SQT<-subset(means_groupsnstd,(Compound_group=="SQT")) #Y
+total<-subset(means_groupsnstd,(Compound_group=="Total")) #Y
+
+names(MT)
+t.test(MT$X3.Hexenal[tromso_comp$perc_level == "low"],tromso_comp$X3.Hexenal[tromso_comp$perc_level == "high"])
+
+#GLV GGPLOT
+means_groupsnstd<-ddply(d1, .(Compound_group,Date,trtmt, treatment,herbivory), summarise, N=length(concentration), sum=sum(concentration),mean=mean(concentration), sd=sd(concentration),  se   = sd / sqrt(N)) #for the same ...BUT TO GET THE SUM ALSO AND there is NOT CI
+GLV<-subset(means_groupsnstd,(Compound_group=="green leaf volatile")) #Y
+names(GLV)[names(GLV) == "mean"] <- "concentration"
+
+#GLVmean<-ddply(GLV, .(Date,trtmt, treatment,herbivory), summarise, N=length(concentration), sum=sum(concentration),mean=mean(concentration), sd=sd(concentration),  se   = sd / sqrt(N)) #for the same ...BUT TO GET THE SUM ALSO AND there is NOT CI
+
+
+#groupsnstd <-GLVmean %>% 
+#  filter(Compound_group!="Total")
+#totalnstd <- means_groupsnstd%>% 
+ # filter(Compound_group=="Total")
+#names(groups)
+#level_order <- c('C','S', "W", 'C+H','S+H' ,"W+H" )
+
+
+GLVgg<-ggplot(data=GLV,aes(x = factor(trtmt, level = level_order),fill=trtmt, y=mean))+scale_fill_viridis_d(option = "inferno",direction = -1)  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date, ncol=3, nrow=1,scales = "free_y")+
+  geom_errorbar(data=GLV,aes(ymin= mean-se,
+                             ymax= mean+se),
+                width=.2,  size=0.7,               
+                position="identity", color="azure4")+
+  ggtitle("GLVs")+ theme(legend.title = element_blank())+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+GLVgg
+
+GLV$Date1 = factor(GLV$Date, levels=c('June 30','July 5','July 11'))
+GLVgg<-ggplot(data=GLV,aes(x = factor(trtmt, level = level_order), y=mean, pattern=treatment, fill=herbivory ))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date1, ncol=3, nrow=1,scales = "free_y")+
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"),0.8))+my_theme+
+  
+  ggtitle("GLVs")+ theme(legend.title = element_blank())+
+  labs(x=expression(Climate~treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+
+  geom_col_pattern(  
+    
+    pattern_density = 0.01,  
+    pattern_fill    = 'grey62',  
+    pattern_colour  = 'grey62'  
+  ) +  
+  aes(pattern = treatment)+
+  scale_pattern_fill_manual(
+    values = c("#440154FF", "#FDE725FF"))+
+  geom_errorbar(data=GLV,aes(ymin= mean-se,
+                                   ymax= mean+se),
+                width=.3,                 
+                position="identity")
+
+GLVgg
+
+
+
+
+#MT
+
+means_groupsnstd<-ddply(d1, .(Compound_group,Date,trtmt, treatment,herbivory), summarise, N=length(concentration), sum=sum(concentration),mean=mean(concentration), sd=sd(concentration),  se   = sd / sqrt(N)) #for the same ...BUT TO GET THE SUM ALSO AND there is NOT CI
+MT<-subset(means_groupsnstd,(Compound_group=="MT")) #Y
+
+
+
+
+
+level_order <- c('C', 'S', 'W','C+H', 'S+H', 'W+H' )
+level_order <- c('C', 'C+H','S','S+H','W' ,'W+H' )
+
+
+
+my_theme=theme(text = element_text(size=15))
+MTgg<-ggplot(data=MT,aes(x = factor(trtmt, level = level_order),fill=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date, ncol=3, nrow=1,scales = "free_y")+
+  geom_errorbar(data=MT,aes(ymin= mean-se,
+                            ymax= mean+se),
+                width=.2,  size=0.7,               
+                position="identity", color="azure4")+
+  ggtitle("Monoterpenes")+ theme(legend.title = element_blank())+scale_fill_viridis_d(option = "inferno",direction = -1)+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+MTgg
+
+MT$Date1 = factor(MT$Date, levels=c('June 30','July 5','July 11'))
+
+MTgg<-ggplot(data=MT,aes(x = factor(trtmt, level = level_order), y=mean, pattern=treatment, fill=herbivory ))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date1, ncol=3, nrow=1,scales = "free_y")+
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"),0.8))+my_theme+
+  
+  ggtitle("  MTs")+ theme(legend.title = element_blank())+
+  labs(x=expression(Climate~treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+
+  geom_col_pattern(  
+    
+    pattern_density = 0.01,  
+    pattern_fill    = 'grey62',  
+    pattern_colour  = 'grey62'  
+  ) +  
+  aes(pattern = treatment)+
+  scale_pattern_fill_manual(
+    values = c("#440154FF", "#FDE725FF"))+
+  geom_errorbar(data=MT,aes(ymin= mean-se,
+                             ymax= mean+se),
+                width=.3,                 
+                position="identity")
+
+MTgg
+
+
+
+
+
+#SQT
+means_groupsnstd<-ddply(d1, .(Compound_group,Date,trtmt, treatment,herbivory), summarise, N=length(concentration), sum=sum(concentration),mean=mean(concentration), sd=sd(concentration),  se   = sd / sqrt(N)) #for the same ...BUT TO GET THE SUM ALSO AND there is NOT CI
+SQT<-subset(means_groupsnstd,(Compound_group=="SQT")) #Y
+
+library(viridis)
+
+
+level_order <- c('C', 'S', 'W','C+H', 'S+H', 'W+H' )
+
+level_order <- c('C', 'C+H','S','S+H','W' ,'W+H' )
+
+
+
+my_theme=theme(text = element_text(size=15))
+SQTgg<-ggplot(data=SQT,aes(x = factor(trtmt, level = level_order),fill=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date, ncol=3, nrow=1,scales = "free_y")+
+  geom_errorbar(data=SQT,aes(ymin= mean-se,
+                             ymax= mean+se),
+                width=.2,  size=0.7,               
+                position="identity", color="azure4")+
+  ggtitle("Sesquiterpenes")+ theme(legend.title = element_blank())+scale_fill_manual(values=c("orange","orange", "maroon","maroon", "black","black"))+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+SQTgg
+
+
+SQT$Date1 = factor(SQT$Date, levels=c('June 30','July 5','July 11'))
+
+SQTgg=ggplot(data=SQT,aes(x = factor(trtmt, level = level_order), y=mean, pattern=treatment, fill=herbivory ))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date1, ncol=3, nrow=1,scales = "free_y")+
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"),0.8))+theme_sqt+
+  
+  ggtitle("SQTs")+ theme(legend.title = element_blank())+
+  labs(x=expression(Climate~treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+
+  geom_col_pattern(  
+    
+    pattern_density = 0.01,  
+    pattern_fill    = 'grey62',  
+    pattern_colour  = 'grey62'  
+  ) +  
+  aes(pattern = treatment)+
+  scale_pattern_fill_manual(
+    values = c("#440154FF", "#FDE725FF"))+
+  geom_errorbar(data=SQT,aes(ymin= mean-se,
+                             ymax= mean+se),
+                width=.3,                 
+                position="identity")
+
+SQTgg
+
+
+
+#HT
+means_groupsnstd<-ddply(d1, .(Compound_group,Date,trtmt, treatment,herbivory), summarise, N=length(concentration), sum=sum(concentration),mean=mean(concentration), sd=sd(concentration),  se   = sd / sqrt(N)) #for the same ...BUT TO GET THE SUM ALSO AND there is NOT CI
+HT<-subset(means_groupsnstd,(Compound_group=="HT")) #Y
+
+
+
+
+level_order <- c('C', 'S', 'W','C+H', 'S+H', 'W+H' )
+level_order <- c('C', 'C+H','S','S+H','W' ,'W+H' )
+
+
+
+my_theme=theme(text = element_text(size=15))
+HTgg<-ggplot(data=HT,aes(x = factor(trtmt, level = level_order),fill=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date, ncol=3, nrow=1,scales = "free_y")+
+  geom_errorbar(data=HT,aes(ymin= mean-se,
+                            ymax= mean+se),
+                width=.2,  size=0.7,               
+                position="identity", color="azure4")+
+  ggtitle("Homoterpenes")+ theme(legend.title = element_blank())+scale_fill_manual(values=c("orange","orange", "maroon","maroon", "black","black"))+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+HTgg
+
+
+HT$Date1 = factor(HT$Date, levels=c('June 30','July 5','July 11'))
+
+HTgg=ggplot(data=HT,aes(x = factor(trtmt, level = level_order), y=mean, pattern=treatment, fill=herbivory ))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date1, ncol=3, nrow=1,scales = "free_y")+
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"),0.8))+my_theme+
+  
+  ggtitle("HT")+ theme(legend.title = element_blank())+
+  labs(x=expression(Climate~treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+
+  geom_col_pattern(  
+    
+    pattern_density = 0.02,  
+    pattern_fill    = 'grey62',  
+    pattern_colour  = 'grey62'  
+  ) +  
+  aes(pattern = treatment)+
+  scale_pattern_fill_manual(
+    values = c("#440154FF", "#FDE725FF"))+
+  geom_errorbar(data=HT,aes(ymin= mean-se,
+                             ymax= mean+se),
+                width=.3,                 
+                position="identity")
+
+HTgg
+
+
+
+
+#OVOC
+means_groupsnstd<-ddply(d1, .(Compund_group_short,Date,trtmt, treatment,herbivory), summarise, N=length(concentration), sum=sum(concentration),mean=mean(concentration), sd=sd(concentration),  se   = sd / sqrt(N)) #for the same ...BUT TO GET THE SUM ALSO AND there is NOT CI
+OVOC<-subset(means_groupsnstd,(Compund_groupt=="OVOC")) #Y
+
+
+
+
+level_order <- c('C', 'S', 'W','C+H', 'S+H', 'W+H' )
+level_order <- c('C', 'C+H','S','S+H','W' ,'W+H' )
+
+
+
+my_theme=theme(text = element_text(size=15))
+OVOCgg<-ggplot(data=OVOC,aes(x = factor(trtmt, level = level_order),fill=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date, ncol=3, nrow=1,scales = "free_y")+
+  geom_errorbar(data=OVOC,aes(ymin= mean-se,
+                              ymax= mean+se),
+                width=.2,  size=0.7,               
+                position="identity", color="azure4")+
+  ggtitle("OVOC")+ theme(legend.title = element_blank())+scale_fill_viridis_d(option = "inferno",direction = -1)+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+OVOCgg
+
+
+
+#HC
+means_groupsnstd<-ddply(d1, .(Compund_group_short,Date,trtmt, treatment,herbivory), summarise, N=length(concentration), sum=sum(concentration),mean=mean(concentration), sd=sd(concentration),  se   = sd / sqrt(N)) #for the same ...BUT TO GET THE SUM ALSO AND there is NOT CI
+HC<-subset(means_groupsnstd,(Compound_group=="hydrocarbons")) #Y
+
+HCgg<-ggplot(data=HC,aes(x = factor(trtmt, level = level_order),fill=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date, ncol=3, nrow=1,scales = "free_y")+
+  geom_errorbar(data=HC,aes(ymin= mean-se,
+                            ymax= mean+se),
+                width=.2,  size=0.7,               
+                position="identity", color="azure4")+
+  ggtitle("HC")+ theme(legend.title = element_blank())+scale_fill_viridis_d(option = "inferno",direction = -1)+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+HCgg
+
+
+
+level_order <- c('C', 'S', 'W','C+H', 'S+H', 'W+H' )
+level_order <- c('C', 'C+H','S','S+H','W' ,'W+H' )
+
+install.packages("viridis")
+install.packages("viridisLite")
+remove.packages(viridisLite)
+library(viridisLite)
+library(viridis)
+
+scale_fill_viridis_d(
+  alpha = 1,
+  begin = 0,
+  end = 1,
+  direction = 1,
+  option = "D",
+  aesthetics = "fill"
+)
+
+my_theme=theme(text = element_text(size=15))
+HCgg<-ggplot(data=HC,aes(x = factor(trtmt, level = level_order),fill=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date, ncol=3, nrow=1,scales = "free_y")+
+  geom_errorbar(data=HC,aes(ymin= mean-se,
+                            ymax= mean+se),
+                width=.2,  size=0.7,               
+                position="identity",color="azure4")+
+  ggtitle("Hydrocarbons")+ theme(legend.title = element_blank())+scale_fill_viridis_d(option = "inferno",direction = -1)+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+HCgg
+
+#other
+means_groupsnstd<-ddply(d1, .(Compund_group_short,Date,trtmt, treatment,herbivory), summarise, N=length(concentration), sum=sum(concentration),mean=mean(concentration), sd=sd(concentration),  se   = sd / sqrt(N)) #for the same ...BUT TO GET THE SUM ALSO AND there is NOT CI
+other<-subset(means_groupsnstd,(Compound_group=="other")) #Y
+
+
+
+
+level_order <- c('C', 'S', 'W','C+H', 'S+H', 'W+H' )
+level_order <- c('C', 'C+H','S','S+H','W' ,'W+H' )
+
+
+
+my_theme=theme(text = element_text(size=15))
+othergg<-ggplot(data=other,aes(x = factor(trtmt, level = level_order),fill=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date, ncol=3, nrow=1,scales = "free_y")+
+  geom_errorbar(data=other,aes(ymin= mean-se,
+                               ymax= mean+se),
+                width=.2,  size=0.7,               
+                position="identity", color="azure4")+
+  ggtitle("Other")+ theme(legend.title = element_blank())+scale_fill_viridis_d(option = "inferno",direction = -1)+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+othergg
+
+
+total<-subset(means_groupsnstd,(Compound_group=="Total")) #Y
+totalgg<-ggplot(data=total,aes(x = factor(trtmt, level = level_order),fill=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date, ncol=3, nrow=1,scales = "free_y")+
+  geom_errorbar(data=total,aes(ymin= mean-se,
+                               ymax= mean+se),
+                width=.2,  size=0.7,               
+                position="identity", color="azure4")+
+  ggtitle("Total")+ theme(legend.title = element_blank())+scale_fill_viridis_d(option = "inferno",direction = -1)+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+totalgg
+
+
+#ISOPRENE
+
+means_groupsnstd<-ddply(d1, .(Compund_group_short,Date,trtmt, treatment,herbivory), summarise, N=length(concentration), sum=sum(concentration),mean=mean(concentration), sd=sd(concentration),  se   = sd / sqrt(N)) #for the same ...BUT TO GET THE SUM ALSO AND there is NOT CI
+iso<-subset(means_groupsnstd,(Compund_group_short=="ISO")) #Y
+
+isogg<-ggplot(data=iso,aes(x = factor(trtmt, level = level_order),fill=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity")+facet_wrap(. ~ Date, ncol=3, nrow=1,scales = "free_y")+
+  geom_errorbar(data=iso,aes(ymin= mean-se,
+                            ymax= mean+se),
+                width=.2,  size=0.7,               
+                position="identity", color="azure4")+
+  ggtitle("Isoprene")+ theme(legend.title = element_blank())+scale_fill_viridis_d(option = "inferno",direction = -1)+my_theme+coord_flip()
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+isogg
+
+library(ggpubr)
+??ggarrange
+fid<-ggarrange(totalgg, GLVgg, HTgg, MTgg, SQTgg,othergg, OVOCgg, HCgg,nrow=8, ncol=1, common.legend = TRUE,labels = c("A", "B", "C", "D", "E", "F", "G", "H"))
+fid
+
+fid<-ggarrange(totalgg, GLVgg, HTgg, MTgg, SQTgg,nrow=5, ncol=1,common.legend = TRUE,labels = c("(a)", "(b)", "(c)", "(d)", "(e)"))
+fid
+
+
+fid<-ggarrange(total, GLVS, HTS, MTS, SQTs,nrow=5, ncol=1,common.legend = TRUE,labels = c("(a)", "(b)", "(c)", "(d)", "(e)"))
+fid
+
+#03022021
+Graphs
+#total_plot
+#mt_plot
+#glv_plot
+#ht_plot
+#sqt_plot
+fid2<-ggarrange( total_plot, glv_plot, ht_plot, mt_plot, sqt_plot,nrow=3, ncol=2,common.legend = TRUE,labels = c( "(a)","(b)", "(c)", "(d)", "(e)"))
+fid2
+
+
+fid<-ggarrange( glv_plot, ht_plot, mt_plot, sqt_plot,nrow=4, ncol=1,common.legend = TRUE,labels = c( "(b)", "(c)", "(d)", "(e)"))
+fid
+
+fid1<-ggarrange( total_plot,nrow=1, ncol=1,common.legend = TRUE,labels = c("(a)"))
+fid1
+
+library(grid)
+grid.newpage()
+grid.draw(rbind(ggplotGrob(fid1), ggplotGrob(fid), size = "last"))
+
+library(gridExtra)
+library(grid)
+library(ggplot2)
+library(lattice)
+
+ggarrange(fid1, fid, widths = c(1.5,2))
+
+
+ggarrange (fid, par)
+
+ggsave("t21.tiff", dpi = 300, width=8, height = 24,units = "in", device='tiff')
+ggsave("t271.tiff", dpi = 300, width=15, height = 12,units = "in", device='tiff')
+
+
+
+??colorNumeric
+
+display.brewer.all(colorblindFriendly = TRUE)
+
+m<-ggplot(data=groupsnstd,aes(x=treatment, y=mean))  +theme_classic()+
+  geom_bar(stat="identity",aes(fill=Compound_group))+
+  facet_grid(treatment~herbivory)+facet_wrap(. ~ Date, ncol=2, nrow=3,scales = "free_y")+
+  geom_errorbar(data=totalnstd,aes(ymin= mean-se,
+                                   ymax= mean+se),
+                width=.2,                 
+                position="identity")+
+  scale_fill_brewer(palette="Set2")+ggtitle("Paddus nstd")+ theme(legend.title = element_blank())+display.brewer.all(colorblindFriendly = TRUE)+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+my_theme
+m
+
++facet_grid(Date~treatment)+
+  #total graph std
+  
+  groupsstd <-means_groupsstd %>% 
+  filter(Compound_group!="Total")
+totalstd <- means_groupsstd%>% 
+  filter(Compound_group=="Total")
+names(groups)
+my_theme=theme(text = element_text(size=15))
+b<-ggplot(data=groupsstd,aes(x=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity",aes(fill=Compound_group))+facet_wrap(. ~ Date, ncol=3, nrow=1,scales = "free_y")+
+  geom_errorbar(data=totalstd,aes(ymin= mean-se,
+                                  ymax= mean+se),
+                width=.2,                 
+                position="identity")+
+  scale_fill_brewer(palette="Set2")+ggtitle("Paddus std")+ theme(legend.title = element_blank())+display.brewer.all(colorblindFriendly = TRUE)+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+my_theme
+
+b
+ggarrange(a,b, nrow=2, common.legend = TRUE, legend="bottom")
+
+
+######################## LMM #######################
+# SUBSET DATA  non std
+
+GLV<-subset(d1,(Compound_group=="green leaf volatile")) #Y
+HT<-subset(d1,(Compound_group=="HT")) #Y
+HC<-subset(d1,(Compound_group=="hydrocarbons"))
+ISO<-subset(d1,(Compound_group=="isoprenoids"))
+MT<-subset(d1,(Compound_group=="MT")) #Y
+other<-subset(d1,(Compound_group=="other"))
+OVOC<-subset(d1,(Compound_group=="oxygenated VOCs"))
+SQT<-subset(d1,(Compound_group=="SQT")) #Y
+total<-subset(d1,(Compound_group=="Total")) #Y
+
+
+test<-ddply(MT,.(herbivory,Date, treatment),summarize, N=length(sum), mean=mean(sum), sd=sd(sum),se=sd/sqrt(N) )
+
+
+
+############# LOG TRANSF vs original values #################
+total$Block=as.factor(total$Block)
+total$Date=as.factor(total$Date)
+total$Plot=as.factor(total$Plot)
+total$treatment=as.factor(total$treatment)
+total$herbivory=as.factor(total$herbivory)
+total$Date=as.factor(total$Date)
+
+
+a<-lmer(concentration~treatment*herbivory*Date+(1|Block/Plot),data=total)
+plot(a)
+plot(a, factor(Block)~resid(.), abline=0)
+plot(a, factor(Plot)~resid(.), abline=0)
+c<-qqnorm(resid(a))
+d<-qqline(resid(a))
+str(total)
+b<-lmer(log(sum+1)~treatment*herbivory*Date+(1|Block/Plot),data=total)
+
+plot(b)
+e<-qqnorm(resid(b))
+f<-qqline(resid(b))
+plot(b, factor(Block)~resid(.), abline=0)
+plot(b, factor(Plot)~resid(.), abline=0)
+
+
+total$treatment
+total$herbivory
+
+############### TOTAL VOC  non std ###################################
+
+# Design diagram
+
+plot(DD(concentration~treatment*herbivory*Date,random=~Block/Plot,data=total))
+
+
+# Residul plots does not look too nice, so we would like to try a Box-Cox analysis.
+# However, MASS::boxcox() does not work on lmer-models. So we do the Box-Cox analysis
+# on the corresponding lm-model without the random effects
+boxcox(lm(concentration~treatment*herbivory*Date,data=total),lambda = seq(-3,2,0.1))
+
+# 
+# Validate initial model
+# 
+
+# Fit LMM (linear mixed effects model)
+m0<-lmer(log(sum+1)~treatment*herbivory*Date+(1|Block/Plot),data=total)
+
+d1$Plot
+# Validate model: remember that we have two sets of random effects in our model
+plot(m0)
+qqnorm(residuals(m0))
+qqnorm(ranef(m0)$'Block'[,1])
+qqnorm(ranef(m0)$'Plot'[,1])
+
+qqline(resid(m0))
+plot(m0, factor(Block)~resid(.), abline=0)
+plot(m0, factor(Plot)~resid(.), abline=0)
+
+
+total$herbivory <- factor(total$herbivory)
+total$treatment <- factor(total$treatment)
+total$Block <- factor(total$Block)
+total$Plot <- factor(total$Plot)
+total$Date <- factor(total$Date)
+
+
+r.rmse <- sqrt(mean(residuals(m0)^2))
+
+# ---
+# Is there an effect?
+# -
+
+# Do model selection starting from m0, which has non-transformed response
+drop1(m0,test="Chisq")
+drop1(m1 <- update(m0,.~.-treatment:herbivory:Date),test="Chisq")
+drop1(m2 <- update(m1,.~.-treatment:herbivory),test="Chisq")
+drop1(m3 <- update(m2,.~.-herbivory:Date),test="Chisq")
+drop1(m4 <- update(m3,.~.-treatment:Date),test="Chisq")
+
+anova(m4)
+tab_model(m4)
+summary(m4)
+
+plot(m4)
+qqnorm(residuals(m4))
+plot()
+r.rmse <- sqrt(mean(residuals(m4)^2))
+plot(fitted(m4),total$log(sum+1))
+abline(a=0,b=1)  ## 1-to-1 line
+install.packages("insight")
+library(insight)
+vars <- insight::get_variance(m4)
+r2_marginal <- vars$var.fixed / (vars$var.fixed + vars$var.random + vars$var.residual)
+r2_conditional <- (vars$var.fixed + vars$var.random) / (vars$var.fixed + vars$var.random + vars$var.residual)
+#So, the marginal R2 is the fixed effects variance, divided by the total variance (i.e. fixed + random + residual). This value indicates how much of the "model variance" is explained by the fixed effects part only.
+#The conditional R2 is the fixed+random effects variance divided by the total variance, and indicates how much of the "model variance" is explained by your "complete" model.
+#If you would like to know how much of the proportion of variance can be explained by the random effects only, then you have the ICC. This is simply:
+icc_adjusted <- vars$var.random / (vars$var.random + vars$var.residual)
+
+# 
+# Where is the effect? : emmeans
+# 
+
+#treatment
+sigma(m4)
+emmeans(m4, specs=trt.vs.ctrl~treatment,type="response", bias.adj=TRUE, sigma=0.6802231)
+
+
+#Date
+Date_total <- emmeans(m4,~Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.6802231)
+Date_total
+#herbivory
+
+emmeans(m4,~herbivory, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.6802231)
+
+
+
+lsmeansherb_total<- emmeans(m4,~herbivory|treatment|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.6802231)
+
+
+
+lsmeansherb_total<- emmeans(m4,~herbivory|treatment|Date, cont="pairwise", int.adjust="tukey", alpha=0.05, bias.adj=TRUE, sigma=0.6802231)
+
+
+
+pairs(lsmeansherb_total,  bias.adj=TRUE, sigma=0.6802231)
+
+total_df <- as.data.frame(lsmeansherb_total$emmeans)
+total_df$Date1 = factor(total_df$Date, levels=c('June 30','July 5','July 11'))
+
+
+
+total_plot=ggplot(total_df, aes(x=herbivory, y=response,  fill=herbivory)) + 
+  geom_bar(stat="identity", color="grey", 
+           position=position_dodge()) +
+  facet_grid(Date1 ~ treatment, scales="free_y")+ggtitle("Total VOCs")+
+  theme_bw() +
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) +
+  theme(axis.title = element_text(size=16),
+        axis.text = element_text(size=15),
+        legend.position = "none") +theme_classic()+theme(legend.position = "none")+
+  
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"), 0.4))+my_theme+
+  labs(x=expression(Herbivory),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+
+  geom_col_pattern(  
+    
+    pattern_density = 0.01,  
+    pattern_fill    = 'grey28',  
+    pattern_colour  = 'grey28'  
+  ) +  
+  aes(pattern = treatment)+
+  scale_pattern_fill_manual(
+    values = c("#440154FF", "#FDE725FF"))+
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) 
+
+my_theme=theme(text = element_text(size=14),
+               axis.text.x = element_text(size = 12),
+               axis.text.y = element_text(size = 12),
+               strip.text.x = element_text(size = 14),
+               strip.text.y  = element_text(size = 14),
+
+               strip.background = element_blank(),
+               axis.title.x=element_text(size = 14),
+               axis.title.y=element_text(size = 14),
+               
+) 
+
+total_plot=ggplot(total_df, aes(x=herbivory, y=response,  fill=herbivory)) + 
+  geom_bar(stat="identity", color="grey", 
+           position=position_dodge()) +
+  facet_wrap(Date1 ~ treatment, ncol=9, nrow=6,)+
+
+  ggtitle("Total VOCs")+
+  theme_bw() +
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) +
+  theme(axis.title = element_text(size=16),
+        axis.text = element_text(size=15),
+        legend.position = "none") +theme_classic()+theme(legend.position = "none")+
+  
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"), 0.4))+my_theme+
+  labs(x=expression(Herbivory),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+
+  geom_col_pattern(  
+    
+    pattern_density = 0.01,  
+    pattern_fill    = 'grey28',  
+    pattern_colour  = 'grey28'  
+  ) +  
+  aes(pattern = treatment)+
+  scale_pattern_fill_manual(
+    values = c("#440154FF", "#FDE725FF"))+
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) 
+
+
+
+
+
+
+
+
+
+total_plot=ggplot(x, aes(x=herbivory, y=response,  fill=herbivory)) + 
+  geom_bar(stat="identity", color="black", 
+           position=position_dodge()) +
+  facet_wrap(~ Date1)+ggtitle("Total")+
+  theme_bw() +
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) +
+  theme(axis.title = element_text(size=16),
+        axis.text = element_text(size=15),
+        legend.position = "none") +theme_classic()+theme(legend.position = "none")+
+  
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF")))+
+  labs(x=expression(Herbivory),
+  y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+
+  geom_col_pattern(  
+    
+    pattern_density = 0.01,  
+    pattern_fill    = 'grey62',  
+    pattern_colour  = 'grey62'  
+  ) +  
+  aes(pattern = treatment)+
+  scale_pattern_fill_manual(
+    values = c("#440154FF", "#FDE725FF"))+
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) 
+  
+
+ggplot(total_df, aes(x=treatment, y=response,  fill=treatment)) + 
+  geom_bar(stat="identity", color="black", 
+           position=position_dodge()) +
+  facet_wrap( ~ Date1, ncol=9, nrow=6,)+ggtitle("Total")+
+  theme_bw() + labs(y="emmean", x="Treatment") +
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) +
+  theme(axis.title = element_text(size=16),
+        axis.text = element_text(size=15),
+        legend.position = "none")
+
+
+
+
+
+##################################    MT      ################################
+plot(DD(concentration~treatment*herbivory*Date,random=~Block/Plot,data=MT),circle="MSS")
+
+MT$herbivory <- factor(MT$herbivory)
+MT$treatment <- factor(MT$treatment)
+MT$Block <- factor(MT$Block)
+MT$Plot <- factor(MT$Plot)
+MT$Date <- factor(MT$Date)
+# 
+# Validate initial model
+# 
+
+# Fit LMM (linear mixed effects model)
+m0<-lmer(log(sum+1)~treatment*herbivory*Date+(1|Block/Plot),data=MT)
+anova(m0)
+summary(m0)
+# Validate model: remember that we have two sets of random effects in our model
+plot(m0)
+qqnorm(residuals(m0))
+qqnorm(ranef(m0)$'Block'[,1])
+qqnorm(ranef(m0)$'Plot'[,1])
+
+qqline(resid(m0))
+plot(m0, factor(Block)~resid(.), abline=0)
+plot(m0, factor(Plot)~resid(.), abline=0)
+
+# 
+# Is there an effect?
+# 
+
+# Do model selection starting from m0, which has non-transformed response
+drop1(m0,test="Chisq")
+drop1(m1 <- update(m0,.~.-treatment:herbivory:Date),test="Chisq")
+drop1(m2 <- update(m1,.~.-treatment:herbivory),test="Chisq")
+anova(m2)
+plot(m2)
+qqnorm(residuals(m2))
+plot()
+r.rmse <- sqrt(mean(residuals(m2)^2))
+plot(fitted(m2),total$log(sum+1))
+
+tab_model(m2)
+summary(m2)
+
+anova(m2)
+r.squaredLR (m2)
+r.squaredLR(m2, null.RE = TRUE)
+
+getVarCov(m2)
+getVarCov(m2, individual = "F01", type = "marginal")
+getVarCov(m2, type = "conditional")
+
+mmt<-m2
+summary(m2)
+# 
+# Where is the effect? : emmeans
+# 
+# emmeans for 
+
+#treatment
+sigma(m2)
+emmeans(m2, specs=trt.vs.ctrl~treatment,type="response", bias.adj=TRUE, sigma=0.6643695)
+
+
+#Date
+Date_total <- emmeans(m2,~Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.6643695)
+Date_total
+#herbivory
+emmeans(m2,~herbivory, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.6643695)
+#herbivory x date
+ emmeans(m2,~herbivory|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.6643695)
+
+#treatment x date
+ emmeans(m2, specs=trt.vs.ctrl~treatment|Date,type="response", bias.adj=TRUE, sigma=0.6643695)
+ 
+
+
+lsmeansherb_mt= emmeans(m2,~herbivory|treatment|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.6643695)
+
+
+
+
+mt_df <- as.data.frame(lsmeansherb_mt$emmeans)
+mt_df$Date1 = factor(total_df$Date, levels=c('June 30','July 5','July 11'))
+
+
+mt_plot=ggplot(mt_df, aes(x=herbivory, y=response,  fill=herbivory)) + 
+  geom_bar(stat="identity", color="grey", 
+           position=position_dodge()) +
+ # facet_grid(Date1 ~ treatment, scales="free_y")
+  facet_wrap(Date1 ~ treatment, ncol=9, nrow=6,)+
+  ggtitle("MTs")+
+  theme_bw() +
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) +
+  theme(axis.title = element_text(size=16),
+        axis.text = element_text(size=15),
+        legend.position = "none") +theme_classic()+theme(legend.position = "none")+
+  
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"), 0.4))+my_theme+
+  labs(x=expression(Herbivory),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+
+  geom_col_pattern(  
+    
+    pattern_density = 0.01,  
+    pattern_fill    = 'grey28',  
+    pattern_colour  = 'grey28'  
+  ) +  
+  aes(pattern = treatment)+
+  scale_pattern_fill_manual(
+    values = c("#440154FF", "#FDE725FF"))+
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) 
+
+
+
+MTS=ggplot(x, aes(x=herbivory, y=emmean, color=treatment, fill=herbivory)) + 
+  geom_bar(stat="identity") +
+  facet_wrap(. ~ treatment, ncol=3, nrow=1,scales = "free_y")+ggtitle("MTs")+
+  theme_bw() + labs(y="emmean", x="Treatment") +
+  geom_linerange(aes(ymin = emmean-SE, ymax = emmean+SE), size=1.5,
+                 position=position_dodge(.9)) +
+  theme(axis.title = element_text(size=16),
+        axis.text = element_text(size=15),
+        legend.position = "none") +theme_classic()+theme(legend.position = "none")+
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"),0.8))+my_theme
+
+
+
+
+
+################ GLV############################
+GLV$herbivory <- factor(GLV$herbivory)
+GLV$treatment <- factor(GLV$treatment)
+GLV$Block <- factor(GLV$Block)
+GLV$Plot <- factor(GLV$Plot)
+GLV$Date <- factor(GLV$Date)
+
+plot(DD(log(sum+1)~treatment*herbivory*Date,random=~Block/Plot,data=GLV))
+
+
+# 
+# Validate initial model
+# 
+
+# Fit LMM (linear mixed effects model)
+m0<-lmer(log(sum+1)~treatment*herbivory*Date+(1|Block/Plot),data=GLV)
+m0=lme(log(sum+1)~treatment*herbivory*Date, random=~1|Block/Plot, method="ML", data=GLV)
+
+
+# Validate model: remember that we have two sets of random effects in our model
+plot(m0)
+qqnorm(residuals(m0))
+qqnorm(ranef(m0)$'Block'[,1])
+qqnorm(ranef(m0)$'Plot'[,1])
+
+
+plot(m0, factor(Block)~resid(.), abline=0)
+plot(m0, factor(Plot)~resid(.), abline=0)
+
+# 
+# Is there an effect?
+# 
+
+# Do model selection starting from m0, which has non-transformed response
+drop1(m0,test="Chisq")
+drop1(m1 <- update(m0,.~.-treatment:herbivory:Date),test="Chisq")
+drop1(m2 <- update(m1,.~.-treatment:herbivory),test="Chisq")
+anova(m2)
+(aov <- anova(m2))
+tab_model(m2)
+summary(m2)
+
+# 
+# Where is the effect? : emmeans
+# 
+
+#treatment
+#treatment
+sigma(m2)
+emmeans(m2, specs=trt.vs.ctrl~treatment,type="response", bias.adj=TRUE, sigma=0.8146646)
+
+
+#Date
+Date_total <- emmeans(m2,~Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.8146646)
+Date_total
+#herbivory
+emmeans(m2,~herbivory, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.8146646)
+#herbivory x date
+emmeans(m2,~herbivory|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.8146646)
+
+#treatment x date
+emmeans(m2, specs=trt.vs.ctrl~treatment|Date,type="response", bias.adj=TRUE, sigma=0.8146646)
+
+
+
+lsmeansherb_glv= emmeans(m2,~herbivory|treatment|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.8146646)
+
+
+
+
+glv_df <- as.data.frame(lsmeansherb_glv$emmeans)
+glv_df$Date1 = factor(total_df$Date, levels=c('June 30','July 5','July 11'))
+
+
+glv_plot=ggplot(glv_df, aes(x=herbivory, y=response,  fill=herbivory)) + 
+  geom_bar(stat="identity", color="grey", 
+           position=position_dodge()) +
+ # facet_grid(Date1 ~ treatment, scales="free_y")+
+  facet_wrap(Date1 ~ treatment, ncol=9, nrow=6,)+
+  
+  ggtitle("GLVs")+
+  theme_bw() +
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) +
+  theme(axis.title = element_text(size=16),
+        axis.text = element_text(size=15),
+        legend.position = "none") +theme_classic()+theme(legend.position = "none")+
+  
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"), 0.4))+my_theme+
+  labs(x=expression(Herbivory),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+
+  geom_col_pattern(  
+    
+    pattern_density = 0.01,  
+    pattern_fill    = 'grey28',  
+    pattern_colour  = 'grey28'  
+  ) +  
+  aes(pattern = treatment)+
+  scale_pattern_fill_manual(
+    values = c("#440154FF", "#FDE725FF"))+
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) 
+
+
+x <- as.data.frame(lsmeansherb$emmeans)
+GLVS=ggplot(x, aes(x=herbivory, y=emmean, color=herbivory, fill=herbivory)) + 
+  geom_bar(stat="identity") +
+  facet_wrap(. ~ treatment, ncol=3, nrow=1,)+ggtitle("GLVs")+
+  theme_bw() + labs(y="emmean", x="Treatment") +
+  geom_linerange(aes(ymin = emmean-SE, ymax = emmean+SE), size=1.5,
+                 position=position_dodge(.9)) +
+  theme(axis.title = element_text(size=16),
+        axis.text = element_text(size=15),
+        legend.position = "none") +theme_classic()+theme(legend.position = "none")+
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"),0.8))+my_theme
+
+
+
+
+################ SQT ############################################
+plot(DD(log(sum+1)~treatment*herbivory*Date,random=~Block/Plot,data=SQT))
+
+SQT$herbivory <- factor(SQT$herbivory)
+SQT$treatment <- factor(SQT$treatment)
+SQT$Block <- factor(SQT$Block)
+SQT$Plot <- factor(SQT$Plot)
+SQT$Date <- factor(SQT$Date)
+# 
+# Validate initial model
+# 
+
+# Fit LMM (linear mixed effects model)
+m0<-lmer(log(sum+1)~treatment*herbivory*Date+(1|Block/Plot),data=SQT)
+
+# Validate model: remember that we have two sets of random effects in our model
+plot(m0)
+qqnorm(residuals(m0))
+qqnorm(ranef(m0)$'Block'[,1])
+qqnorm(ranef(m0)$'Plot'[,1])
+
+
+plot(m0, factor(Block)~resid(.), abline=0)
+plot(m0, factor(Plot)~resid(.), abline=0)
+
+# 
+# Is there an effect?
+# 
+
+# Do model selection starting from m0, which has non-transformed response
+drop1(m0,test="Chisq")
+drop1(m1 <- update(m0,.~.-treatment:herbivory:Date),test="Chisq")
+drop1(m2 <- update(m1,.~.-treatment:Date),test="Chisq")
+drop1(m3 <- update(m2,.~.-herbivory:Date),test="Chisq")
+anova(m3)
+
+#drop1(m3 <- update(m2,.~.-herbivory:Date),test="Chisq")
+
+tab_model(m3)
+summary(m3)
+
+msqt<-m3
+# 
+# Where is the effect? : emmeans
+# 
+#treatment
+sigma(m3)
+emmeans(m3, specs=trt.vs.ctrl~treatment,type="response", bias.adj=TRUE, sigma=0.7086249)
+
+
+#Date
+Date_total <- emmeans(m3,~Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.7086249)
+Date_total
+#herbivory
+emmeans(m3,~herbivory, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.7086249)
+#herbivory x treatment
+emmeans(m3,~herbivory|treatment, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.7086249)
+
+
+
+
+lsmeansherb_sqt= emmeans(m3,~herbivory|treatment|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.7086249)
+
+
+
+
+sqt_df <- as.data.frame(lsmeansherb_sqt$emmeans)
+sqt_df$Date1 = factor(sqt_df$Date, levels=c('June 30','July 5','July 11'))
+
+
+sqt_plot=ggplot(sqt_df, aes(x=herbivory, y=response,  fill=herbivory)) + 
+  geom_bar(stat="identity", color="grey", 
+           position=position_dodge()) +
+ # facet_grid(Date1 ~ treatment, scales="free_y")+
+  facet_wrap(Date1 ~ treatment, ncol=9, nrow=6,)+
+  
+  ggtitle("SQTs")+
+  theme_bw() +
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) +
+  theme(axis.title = element_text(size=16),
+        axis.text = element_text(size=15),
+        legend.position = "none") +theme_classic()+theme(legend.position = "none")+
+  
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"), 0.4))+my_theme+
+  labs(x=expression(Herbivory),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+
+  geom_col_pattern(  
+    
+    pattern_density = 0.01,  
+    pattern_fill    = 'grey28',  
+    pattern_colour  = 'grey28'  
+  ) +  
+  aes(pattern = treatment)+
+  scale_pattern_fill_manual(
+    values = c("#440154FF", "#FDE725FF"))+
+  geom_errorbar(aes(ymin = response-SE, ymax = response+SE), width=.1, size=0.7,
+                position=position_dodge(.9)) 
+
+
+
+lsmeansherb<- emmeans(m3,~herbivory|treatment, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05)
+lsmeansherb
+x <- as.data.frame(lsmeansherb$emmeans)
+SQTs=ggplot(x, aes(x=herbivory, y=emmean, color=treatment, fill=herbivory)) + ggtitle("SQTs")+
+  geom_bar(stat="identity") +
+  facet_wrap(. ~ treatment, ncol=3, nrow=1,)+
+  theme_bw() + labs(y="emmean", x="Treatment") +
+  geom_linerange(aes(ymin = emmean-SE, ymax = emmean+SE), size=1.5,
+                 position=position_dodge(.9)) +
+  theme(axis.title = element_text(size=16),
+        axis.text = element_text(size=15),
+        legend.position = "none") +theme_classic()+theme(legend.position = "none")+
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"),0.8))+my_theme
+
+
+
+
+################ HT ######################################
+HT$herbivory <- factor(HT$herbivory)
+HT$treatment <- factor(HT$treatment)
+HT$Block <- factor(HT$Block)
+HT$Plot <- factor(HT$Plot)
+HT$Date <- factor(HT$Date)
+
+plot(DD(log(sum+1)~treatment*herbivory*Date,random=~Block/Plot,data=HT))
+
+
+# 
+# Validate initial model
+# 
+
+# Fit LMM (linear mixed effects model)
+m0<-lmer(log(sum+1)~treatment*herbivory*Date+(1|Block/Plot),data=HT)
+
+# Validate model: remember that we have two sets of random effects in our model
+plot(m0)
+qqnorm(residuals(m0))
+qqnorm(ranef(m0)$'Block'[,1])
+qqnorm(ranef(m0)$'Plot'[,1])
+
+
+plot(m0, factor(Block)~resid(.), abline=0)
+plot(m0, factor(Plot)~resid(.), abline=0)
+
+# 
+# Is there an effect?
+# 
+library(lmerTest)
+# Do model selection starting from m0, which has non-transformed response
+drop1(m0,test="Chisq")
+drop1(m1 <- update(m0,.~.-treatment:herbivory:Date),test="Chisq")
+drop1(m2 <- update(m1,.~.-treatment:Date),test="Chisq")
+anova(m2)
+
+tab_model(m2)
+summary(m2)
+
+# 
+# Where is the effect? : emmeans
+# 
+
+#treatment
+sigma(m2)
+emmeans(m2, specs=trt.vs.ctrl~treatment)
+
+emmeans(m2, specs=trt.vs.ctrl~treatment,type="response", bias.adj=TRUE, sigma=0.3747145)
+emmeans(m2, trt.vs.ctrl ~ treatment, transform = "response", bias.adj=TRUE, sigma=0.3747145)
+
+#Date
+Date_total <- emmeans(m2,~Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.3747145)
+Date_total
+#herbivory
+emmeans(m2,~herbivory, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.3747145)
+
+#herbivory x treatment
+emmeans(m2,~herbivory|treatment, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.3747145)
+emmeans(m2,~herbivory|treatment, cont="pairwise", int.adjust="tukey", alpha=0.05, bias.adj=TRUE, sigma=0.3747145)
+
+#emmeans(m2, pairwise ~ herbivory|treatment, transform = "response", bias.adj=TRUE, sigma=0.3747145)
+
+#herbivory x date
+emmeans(m2,~herbivory|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.3747145)
+#emmeans(m2,~herbivory|Date, cont="pairwise", int.adjust="tukey", transform="response", alpha=0.05, bias.adj=TRUE, sigma=0.3747145)
+emmeans(m2, pairwise ~ herbivory|Date, transform = "response", bias.adj=TRUE, sigma=0.3747145)
+
+
+
+lsmeansherb_ht= emmeans(m2,~herbivory|treatment|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.3747145)
+
+
+
+
+ht_df <- as.data.frame(lsmeansherb_ht$emmeans)
+ht_df$Date1 = factor(ht_df$Date, levels=c('June 30','July 5','July 11'))
+
+
+
+
+
+
+
+
+x <- as.data.frame(lsmeansherb$emmeans)
+HTS=ggplot(x, aes(x=herbivory, y=emmean, color=treatment, fill=herbivory)) + 
+  geom_bar(stat="identity") +
+  facet_wrap(. ~ treatment, ncol=3, nrow=1,)+
+  theme_bw() + labs(y="emmean", x="Treatment") +ggtitle("HTs")+
+  geom_linerange(aes(ymin = emmean-SE, ymax = emmean+SE), size=1.5,
+                 position=position_dodge(.9)) +
+  theme(axis.title = element_text(size=16),
+        axis.text = element_text(size=15),
+        legend.position = "none") +theme_classic()+theme(legend.position = "none")+
+  scale_fill_manual(values = alpha(c("#440154FF", "#FDE725FF"),0.8))+my_theme
+
+
+
+
+
+################ ISO #############################
+ISO$herbivory <- factor(ISO$herbivory)
+ISO$treatment <- factor(ISO$treatment)
+ISO$Block <- factor(ISO$Block)
+ISO$Plot <- factor(ISO$Plot)
+ISO$Date <- factor(ISO$Date)
+
+plot(DD(log(sum+1)~treatment*herbivory*Date,random=~Block/Plot,data=ISO))
+
+
+# 
+# Validate initial model
+# 
+
+# Fit LMM (linear mixed effects model)
+m0<-lmer(log(sum+1)~treatment*herbivory*Date+(1|Block/Plot),data=ISO)
+
+# Validate model: remember that we have two sets of random effects in our model
+plot(m0)
+qqnorm(residuals(m0))
+qqnorm(ranef(m0)$'Block'[,1])
+qqnorm(ranef(m0)$'Plot'[,1])
+
+
+plot(m0, factor(Block)~resid(.), abline=0)
+plot(m0, factor(Plot)~resid(.), abline=0)
+
+# 
+# Is there an effect?
+# 
+
+# Do model selection starting from m0, which has non-transformed response
+drop1(m0,test="Chisq")
+anova(m0)
+tab_model(m0)
+summary(m0)
+
+
+# 
+# Where is the effect? : emmeans
+# 
+
+sigma(m0)
+
+emmeans(m0, specs=trt.vs.ctrl~treatment,type="response", bias.adj=TRUE, sigma=0.3789912)
+
+#Date
+Date_total <- emmeans(m0,~Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.3789912)
+Date_total
+#herbivory
+emmeans(m0,~herbivory, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.3789912)
+
+
+
+
+lsmeansherb_iso= emmeans(m0,~herbivory|treatment|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.3789912)
+
+
+
+
+ht_iso <- as.data.frame(lsmeansherb_iso$emmeans)
+ht_iso$Date1 = factor(ht_iso$Date, levels=c('June 30','July 5','July 11'))
+
+
+
+
+
+################ HC #####################
+HC$herbivory <- factor(HC$herbivory)
+HC$treatment <- factor(HC$treatment)
+HC$Block <- factor(HC$Block)
+HC$Plot <- factor(HC$Plot)
+HC$Date <- factor(HC$Date)
+
+plot(DD(log(sum+1)~treatment*herbivory*Date,random=~Block/Plot,data=HC))
+
+
+# 
+# Validate initial model
+# 
+
+# Fit LMM (linear mixed effects model)
+m0<-lmer(log(sum+1)~treatment*herbivory*Date+(1|Block/Plot),data=HC)
+
+# Validate model: remember that we have two sets of random effects in our model
+plot(m0)
+qqnorm(residuals(m0))
+qqnorm(ranef(m0)$'Block'[,1])
+qqnorm(ranef(m0)$'Plot'[,1])
+
+
+plot(m0, factor(Block)~resid(.), abline=0)
+plot(m0, factor(Plot)~resid(.), abline=0)
+
+# 
+# Is there an effect?
+# 
+
+# Do model selection starting from m0, which has non-transformed response
+drop1(m0,test="Chisq")
+drop1(m1 <- update(m0,.~.-treatment:herbivory:Date),test="Chisq")
+drop1(m2 <- update(m1,.~.-treatment:Date),test="Chisq")
+anova(m2)
+plot(m2)
+qqnorm(residuals(m2))
+r.rmse <- sqrt(mean(residuals(m2)^2))
+plot(fitted(m2),HC$log(sum+1))
+
+tab_model(m2)
+summary(m2)
+
+# 
+# Where is the effect? : emmeans
+# 
+
+#treatment
+sigma(m2)
+
+emmeans(m2, specs=trt.vs.ctrl~treatment,type="response", bias.adj=TRUE, sigma=0.7306957)
+
+#Date
+Date_total <- emmeans(m0,~Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.7306957)
+Date_total
+#herbivory
+emmeans(m2,~herbivory, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.7306957)
+
+lsmeansherb_hc= emmeans(m2,~herbivory|treatment, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.7306957)
+
+
+
+lsmeansherb_hc= emmeans(m2,~herbivory|treatment|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.7306957)
+
+hc_df <- as.data.frame(lsmeansherb_hc$emmeans)
+
+################ other #####################
+other$herbivory <- factor(other$herbivory)
+other$treatment <- factor(other$treatment)
+other$Block <- factor(other$Block)
+other$Plot <- factor(other$Plot)
+other$Date <- factor(other$Date)
+
+plot(DD(log(sum+1)~treatment*herbivory*Date,random=~Block/Plot,data=other))
+
+
+# 
+# Validate initial model
+# 
+
+# Fit LMM (linear mixed effects model)
+m0<-lmer(log(sum+1)~treatment*herbivory*Date+(1|Block/Plot),data=other)
+
+# Validate model: remember that we have two sets of random effects in our model
+plot(m0)
+qqnorm(residuals(m0))
+qqnorm(ranef(m0)$'Block'[,1])
+qqnorm(ranef(m0)$'Plot'[,1])
+
+
+plot(m0, factor(Block)~resid(.), abline=0)
+plot(m0, factor(Plot)~resid(.), abline=0)
+
+# 
+# Is there an effect?
+# 
+
+# Do model selection starting from m0, which has non-transformed response
+drop1(m0,test="Chisq")
+drop1(m1 <- update(m0,.~.-treatment:herbivory:Date),test="Chisq")
+drop1(m2 <- update(m1,.~.-treatment:herbivory),test="Chisq")
+drop1(m3 <- update(m2,.~.-treatment:Date),test="Chisq")
+
+
+anova(m3)
+
+
+tab_model(m3)
+summary(m3)
+
+
+# 
+# Where is the effect? : emmeans
+# 
+
+#treatment
+sigma(m3)
+
+emmeans(m3, specs=trt.vs.ctrl~treatment,type="response", bias.adj=TRUE, sigma=0.3219876)
+
+#Date
+Date_total <- emmeans(m0,~Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.3219876)
+Date_total
+#herbivory
+emmeans(m3,~herbivory, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.3219876)
+
+ emmeans(m3,~herbivory|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.3219876)
+
+
+
+lsmeansherb_other= emmeans(m3,~herbivory|treatment|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.3219876)
+
+other_df <- as.data.frame(lsmeansherb_other$emmeans)
+
+
+################ OVOC ##############################
+OVOC$herbivory <- factor(OVOC$herbivory)
+OVOC$treatment <- factor(OVOC$treatment)
+OVOC$Block <- factor(OVOC$Block)
+OVOC$Plot <- factor(OVOC$Plot)
+OVOC$Date <- factor(OVOC$Date)
+
+plot(DD(log(sum+1)~treatment*herbivory*Date,random=~Block/Plot,data=OVOC))
+
+
+# 
+# Validate initial model
+# 
+
+# Fit LMM (linear mixed effects model)
+m0<-lmer(log(sum+1)~treatment*herbivory*Date+(1|Block/Plot),data=OVOC)
+
+# Validate model: remember that we have two sets of random effects in our model
+plot(m0)
+qqnorm(residuals(m0))
+qqnorm(ranef(m0)$'Block'[,1])
+qqnorm(ranef(m0)$'Plot'[,1])
+
+
+plot(m0, factor(Block)~resid(.), abline=0)
+plot(m0, factor(Plot)~resid(.), abline=0)
+
+# 
+# Is there an effect?
+# 
+
+# Do model selection starting from m0, which has non-transformed response
+drop1(m0,test="Chisq")
+drop1(m1 <- update(m0,.~.-treatment:herbivory:Date),test="Chisq")
+drop1(m2 <- update(m1,.~.-treatment:herbivory),test="Chisq")
+drop1(m3 <- update(m2,.~.-herbivory:Date),test="Chisq")
+drop1(m4 <- update(m3,.~.-treatment:Date),test="Chisq")
+anova(m4)
+plot(m4)
+qqnorm(residuals(m4))
+r.rmse <- sqrt(mean(residuals(m4)^2))
+plot(fitted(m4),OVOC$log(sum+1))
+
+
+tab_model(m4)
+summary(m4)
+
+
+# 
+# Where is the effect? : emmeans
+# 
+#treatment
+#treatment
+sigma(m4)
+
+emmeans(m4, specs=trt.vs.ctrl~treatment,type="response", bias.adj=TRUE, sigma=0.7434542)
+
+#Date
+Date_total <- emmeans(m4,~Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.7434542)
+Date_total
+#herbivory
+emmeans(m4,~herbivory, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.7434542)
+
+
+
+
+lsmeansherb_ovoc= emmeans(m4,~herbivory|treatment|Date, cont="pairwise", int.adjust="tukey", type="response", alpha=0.05, bias.adj=TRUE, sigma=0.7434542)
+
+ovoc_df <- as.data.frame(lsmeansherb_ovoc$emmeans)
+
+
+
+############################## 03092020 100% bar plots lollipop plots #######################
+
+
+
+
+
+
+
+
+
+
+# Package
+library(treemap)
+d1<-read.table("means_groupsnstd.csv",head = TRUE, sep=",")
+
+
+data <-means_groupsnstd2 %>% 
+  filter(Compound_group!="Total")
+
+data <-means_groupsnstd3 %>% 
+  filter(Compound_group!="Total")
+
+# A grouped barplot
+data  %>% 
+  ggplot( aes(x=trtmt, y=mean, fill=Compound_group)) +
+  geom_bar(stat="identity", width = 0.5) +
+  scale_fill_viridis(discrete=TRUE, name="") +
+  ylab("Number of baby")
+
+ggplot(data, aes(fill=Compound_group, y=mean, x=herbivory)) + 
+  geom_bar(position="fill", stat="identity")+  facet_wrap(~Date, ncol=1, scale="free_y")+
+  scale_fill_viridis_d(option = "cividis",direction = -1)+theme_classic()
+
+ggtitle("Total")+ theme(legend.title = element_blank())+scale_fill_viridis_d(option = "inferno",direction = -1)+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+totalgg
+library(ggpubr)
+??ggarrange
+fid<-ggarrange(totalgg, GLVgg, HTgg, MTgg, SQTgg,othergg, OVOCgg, HCgg,nrow=8, ncol=1, common.legend = TRUE,labels = c("A", "B", "C", "D", "E", "F", "G", "H"))
+fid
+
+fid<-ggarrange(totalgg, GLVgg, HTgg, MTgg, SQTgg,othergg,nrow=6, ncol=1, common.legend = TRUE,labels = c("A", "B", "C", "D", "E", "F"))
+fid
+# With a bit more style
+ggplot(data) +
+  geom_segment( aes(x=trtmt, xend=trtmt, y=0, yend=mean), color="grey") +
+  geom_point( aes(x=trtmt, y=mean, color=Compound_group), size=3 ) +
+  coord_flip()+theme_classic()+
+  theme(
+    
+    panel.border = element_blank(),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text.x = element_text(size = 8)
+  ) +
+  xlab("") +
+  ylab("Value of Y") +
+  facet_wrap(~Compound_group, ncol=1, scale="free_y")
+
+# Plot
+treemap(t1,
+        
+        # data
+        index="Compound_group",
+        vSize="mean",
+        type="index",
+        
+        # Main
+        title="",
+        palette="Dark2",
+        
+        # Borders:
+        border.col=c("black"),             
+        border.lwds=1,                         
+        
+        # Labels
+        fontsize.labels=0.5,
+        fontcolor.labels="white",
+        fontface.labels=1,            
+        bg.labels=c("transparent"),              
+        align.labels=c("left", "top"),                                  
+        overlap.labels=0.5,
+        inflate.labels=T                        # If true, labels are bigger when rectangle is bigger.
+        
+        
+)

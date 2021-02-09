@@ -1,0 +1,103 @@
+#################################################
+########WORKSHOP RANDOM FOREST 02.05.2019########
+####Jolanta Rieksta, jolanta.rieksta@gmail.com###
+#########Script adopted from R R Junker##########
+
+##Install packages , load datasets ---------------------------------------
+install.packages("randomForest")
+install.packages("ggplot2")
+library("randomForest")
+library("ggplot2")
+###############################
+
+# Load data ---------------------------------------------------------------
+# VOC data Density experiment 1  (Abisko D1)
+setwd("C:\\Users\\lcm767\\Desktop\\R\\D1")
+voc <- read.csv('JRieksta_RF_workshop_voc.csv')
+
+#Metabolite data Density experiment 1 (Abisko D1)
+setwd("C:\\Users\\lcm767\\Desktop\\R\\Metabolites")
+met <- read.csv('JRieksta_FR_wokshop_metabolites.csv')
+#Factor density (classifier) as factor
+met$density=as.factor(met$density)
+
+#######################################
+
+# subset ------------------------------------------------------------------
+low<-subset(troms_prop,(level=="low"))
+high<-subset(troms_prop,(level=="high"))
+bouquet<-tromso_spread[,c(9:105)]
+low<-low[,c(9:106)]
+high<-high[,c(9:106)]
+
+#Random forest function
+#VOC EXAMPLE
+
+names(voc)
+sqrt(57-4) #sqrt of sample size to set mtry. 
+b.rf<-randomForest(voc$level~ ., data=voc[, 5:57], mtry=8, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+plot(b.rf)
+print(b.rf)
+b.rf$predicted
+
+#Classification
+classification <- cbind(voc[4], b.rf$predicted) #Compare predicted vs actual data 
+classification
+
+#Variable importance 
+varimp <- importance(b.rf, scale=TRUE)[,3] 
+sort(varimp)
+# write.table(sort(varimp), "variableImportance.txt") 
+varImpPlot(b.rf)
+
+
+#Result visualization
+b.mds<-cmdscale(1-b.rf$proximity)
+plot(b.mds, col=c("orange", "#3366FF")[voc$level], pch = c( 17,16)[as.numeric(voc$level)],cex=2)
+legend("topleft", pch = c(17,16), col=c("orange", "#3366FF"), c("low", "high"), cex =1.2)
+
+
+#Confirming RF results
+#We saw that the compound that has the highest E value is X2.4.Hexadienal...E.E.. so we test it 
+t.test(voc$X2.4.Hexadienal...E.E..[voc$level == "low"], voc$X2.4.Hexadienal...E.E..[voc$level == "high"])
+a1 <- aov(voc$X2.4.Hexadienal...E.E.. ~ voc$level)
+summary(a1)
+TukeyHSD(a1, "voc$level")
+
+#Visualizing
+#boxplot(d1_prop$X2.4.Hexadienal...E.E.. ~ d1_prop$level)
+boxplot(voc$X2.4.Hexadienal...E.E.. ~ voc$level)
+
+#Visualizing with ggplot
+
+ggplot(voc, aes(x=level, y=  X2.4.Hexadienal...E.E.., fill=level)) + 
+  geom_boxplot()+theme_classic()+ 
+  stat_summary(fun.y=mean, geom="point", shape=20, size=3, color="red", fill="red")+ 
+  scale_fill_manual(breaks = c("low", "high"), values=c("#3366FF", "orange1"))
+
+
+#Metabolite example
+
+sqrt(1550-7) 
+names(met)
+################################
+###############################
+b.rf<-randomForest(met$density~ ., data=met[, 8:1550], mtry=40, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+plot(b.rf)
+print(b.rf)
+b.rf$predicted
+
+
+classification <- cbind(met[4], b.rf$predicted)
+classification
+
+varimp <- importance(b.rf, scale=TRUE)[,3] #variable importance with highest values ->more imp
+sort(varimp)
+
+# write.table(sort(varimp), "variableImportance_flower_newbac.txt")
+varImpPlot(b.rf)
+b.mds<-cmdscale(1-b.rf$proximity)
+
+a<-plot(b.mds, col=c("blue", "orange", "pink", "darkgreen", "black")[met$density],  pch = c( 17,16,18,15,22)[as.numeric(met$density)],cex=2)
+legend("topleft",pch = c( 17,16,18,15,22), col=c("blue",  "orange", "pink", "darkgreen", "black"), c("0",  "5", "15","30", "50"),  cex=1)
+

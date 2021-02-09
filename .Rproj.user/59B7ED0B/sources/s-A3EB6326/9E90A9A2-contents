@@ -1,0 +1,1071 @@
+library(randomForest)
+library(cluster)
+setwd("C:/Users/lcm767/OneDrive - K?benhavns Universitet/Desktop/Projects/Paddus 2018")
+
+#14012021
+d1<- read_excel("Paddus to Tao_TAO_1412202020.xlsx", sheet = "1512_spread_climate")
+names(d1)
+e<-d1[,-c(1, 1:42)] #remove non compound rows
+prop<-cbind(id = e[, 1], e[, -1]/rowSums(e[, -1]))
+propdatanstd<-cbind(d1[,c(1, 1:42)],prop) #bind back ID and density
+write.csv(propdatanstd, "14012021_Paddus_proportions.csv")
+
+
+total<-propdatanstd
+
+#yellow #f6d746 c
+#organge s #e55c30
+#purple  w #2e1978
+total$warming.x
+
+total$Date[total$Date=="30.06.2018"] <- "June 30"
+total$Date[total$Date=="05.07.2018"] <- "July 5"
+total$Date[total$Date=="11.07.2018"] <- "July 11"
+propdatanstd$Date
+t1<- subset(total, Date==c("June 30"))
+t2<- subset(total, Date==c("July 5"))
+t3<- subset(total, Date==c("July 11"))
+
+control_t1<- subset(t1, warming==c("C"))
+shading_t1<-subset(t1, warming==c("S"))
+warm_t1<-subset(t1, warming==c("W"))
+
+control_t2<- subset(t2, warming==c("C"))
+shading_t2<-subset(t2, warming==c("S"))
+warm_t2<-subset(t2, warming==c("W"))
+
+
+control_t3<- subset(t3, warming==c("C"))
+shading_t3<-subset(t3, warming==c("S"))
+warm_t3<-subset(t3, warming==c("W"))
+
+
+my_theme=theme(text = element_text(size=15),
+               panel.border = element_rect(colour = "black", fill=NA, size=0.5),
+               axis.text.x = element_text(size = 13),
+               axis.text.y = element_text(size = 13),
+               axis.title.x=element_text(size = 13),
+               axis.title.y=element_text(size = 13)
+               
+) 
+###################################################
+g <-randomForest( x=shading_t2[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+
+#mds <- MDSplot(g, shading_t2$herbivory, k=2, pch=16, palette=c("skyblue", "orange"))
+
+clusters_pam <- pam(1-g$proximity, k=2, diss = TRUE)
+clusters_pam$clustering<-factor(clusters_pam$clustering)
+shading_t2$herbivory<-factor(shading_t2$herbivory)
+mytable<-table(clusters_pam$clustering, shading_t2$herbivory)
+
+#plot(mds$points[, 1], mds$points[, 2], pch=clusters_pam$clustering+14, col=c("skyblue", "orange")[as.numeric(shading_t2$herbivory)])
+#legend("bottomleft", legend=unique(clusters_pam$clustering), pch = 15:17, title = "PAM cluster")
+#legend("topleft", legend=unique(shading_t2$herbivory), pch = 16, col=c("skyblue", "orange"), title = "Iris species")
+
+
+herb_t1_s_prox<-cmdscale(1-herb_t1_s$proximity)
+herb_t1_s_df<-as.data.frame(herb_t1_s_prox, row.names = NULL)
+
+ggplot(herb_t2_s_df, aes(x=V1, y=V2, color=shading_t2$herbivory))+
+        geom_point(aes(shape=clusters_pam$clustering, color=shading_t2$herbivory),size=4.5)+theme_classic()+
+        guides(col=guide_legend("Herbivory"),
+        shape=guide_legend("PAM cluster"))+
+        annotation_custom(tableGrob(mytable), xmin=0.5, xmax=0.5, ymin=0.2, ymax=0.3)+
+        ggtitle("Shading")+
+        scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme
+
+
+g_new <- randomForest(shading_t2[, 44:264], y=as.factor(clusters_pam$clustering), keep.forest=TRUE, proximity=TRUE)
+table(predict(g_new, shading_t2[, 44:264]), clusters_pam$clustering)
+
+varimp.t2_s <- importance(g, scale=TRUE)[,3] #variable importance with highest values ->more imp
+sort(varimp.t2_s)
+varImpPlot(g)
+
+
+
+########################June 30 looking at the herbivory for each climate treatment separately)#################
+#total herb T1
+t1_herb1<-randomForest( x=t1[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+
+t1_herb1_pam <- pam(1-t1_herb1$proximity, k=2, diss = TRUE)
+t1_herb1_pam$clustering<-factor(t1_herb1_pam$clustering)
+t1$herbivory<-factor(t1$herbivory)
+mytable<-table(t1_herb1_pam$clustering, t1$herbivory)
+
+
+t1_herb1_prox<-cmdscale(1-t1_herb1$proximity)
+t1_herb1_df<-as.data.frame(t1_herb1_prox, row.names = NULL)
+
+#pam clustering
+t1_herb_plot=ggplot(t1_herb1_df, aes(x=V1, y=V2, color=t1$herbivory))+
+  geom_point(aes(shape=t1_herb1_pam$clustering, color=t1$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  annotation_custom(tableGrob(mytable), xmin=0.2, xmax=0.4, ymin=0.3, ymax=0.4)+
+  ggtitle("June 30")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(t1$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+#no PAM
+t1_herb_plot=ggplot(t1_herb1_df, aes(x=V1, y=V2, color=t1$herbivory))+
+  geom_point(aes( shape=t1$herbivory,color=t1$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+
+  ggtitle("June 30")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(t1$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+
+
+g_new <- randomForest(t1[, 44:264], y=as.factor(t1_herb1_pam$clustering), keep.forest=TRUE, proximity=TRUE)
+table(predict(g_new, t1[, 44:264]), t1_herb1_pam$clustering)
+print(g_new)
+
+#control
+herb_t1_c<-randomForest( x=control_t1[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+
+herb_t1_c_pam <- pam(1-herb_t1_c$proximity, k=2, diss = TRUE)
+herb_t1_c_pam$clustering<-factor(herb_t1_c_pam$clustering)
+control_t1$herbivory<-factor(control_t1$herbivory)
+mytable_c<-table(herb_t1_c_pam$clustering, control_t1$herbivory)
+
+
+herb_t1_c_prox<-cmdscale(1-herb_t1_c$proximity)
+herb_t1_c_df<-as.data.frame(herb_t1_c_prox, row.names = NULL)
+
+#PAM
+herb_t1_c_plot=ggplot(herb_t1_c_df, aes(x=V1, y=V2, color=control_t1$herbivory))+
+  geom_point(aes(shape=herb_t1_c_pam$clustering, color=control_t1$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  annotation_custom(tableGrob(mytable_c), xmin=0.5, xmax=0.6, ymin=0.2, ymax=0.3)+
+  ggtitle("Control")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(control_t1$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+#NO PAM
+herb_t1_c_plot=ggplot(herb_t1_c_df, aes(x=V1, y=V2, color=control_t1$herbivory))+
+  geom_point(aes(shape=control_t1$herbivory, color=control_t1$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+
+  ggtitle("Control")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(control_t1$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+
+
+g_new <- randomForest(control_t1[, 44:264], y=as.factor(herb_t1_c_pam$clustering), keep.forest=TRUE, proximity=TRUE)
+table(predict(g_new, control_t1[, 44:264]), herb_t1_c_pam$clustering)
+
+print(g_new)
+#shading
+herb_t1_s<-randomForest( x=shading_t1[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+
+herb_t1_s_pam <- pam(1-herb_t1_s$proximity, k=2, diss = TRUE)
+herb_t1_s_pam$clustering<-factor(herb_t1_s_pam$clustering)
+shading_t1$herbivory<-factor(shading_t1$herbivory)
+mytable_s<-table(herb_t1_s_pam$clustering, shading_t1$herbivory)
+
+
+herb_t1_s_prox<-cmdscale(1-herb_t1_s$proximity)
+herb_t1_s_df<-as.data.frame(herb_t1_s_prox, row.names = NULL)
+#PAM
+herb_t1_s_plot=ggplot(herb_t1_s_df, aes(x=V1, y=V2, color=shading_t1$herbivory))+
+  geom_point(aes(shape=herb_t1_s_pam$clustering, color=shading_t1$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  annotation_custom(tableGrob(mytable_s), xmin=0.45, xmax=0.55, ymin=0.4, ymax=0.45)+
+  ggtitle("Shading")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(shading_t1$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+#NO PAM
+herb_t1_s_plot=ggplot(herb_t1_s_df, aes(x=V1, y=V2, color=shading_t1$herbivory))+
+  geom_point(aes(shape=shading_t1$herbivory, color=shading_t1$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  ggtitle("Shading")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(shading_t1$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+g_new_s <- randomForest(shading_t1[, 44:264], y=as.factor(shading_t1$herbivory), keep.forest=TRUE, proximity=TRUE)
+table(predict(g_new_s, shading_t1[, 44:264]), herb_t1_s_pam$clustering)
+
+g_new <- randomForest(shading_t1[, 44:264], y=as.factor(herb_t1_s_pam$clustering), keep.forest=TRUE, proximity=TRUE)
+table(predict(g_new, shading_t1[, 44:264]), herb_t1_s_pam$clustering)
+
+print(g_new_s)
+
+#warming
+herb_t1_w<-randomForest( x=warm_t1[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+
+herb_t1_w_pam <- pam(1-herb_t1_w$proximity, k=2, diss = TRUE)
+herb_t1_w_pam$clustering<-factor(herb_t1_w_pam$clustering)
+warm_t1$herbivory<-factor(warm_t1$herbivory)
+mytable_w<-table(herb_t1_w_pam$clustering, warm_t1$herbivory)
+
+
+herb_t1_w_prox<-cmdscale(1-herb_t1_w$proximity)
+herb_t1_w_df<-as.data.frame(herb_t1_w_prox, row.names = NULL)
+#PAM
+herb_t1_w_plot=ggplot(herb_t1_w_df, aes(x=V1, y=V2, color=warm_t1$herbivory))+
+  geom_point(aes(shape=herb_t1_w_pam$clustering, color=warm_t1$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  annotation_custom(tableGrob(mytable_w), xmin=0.4, xmax=0.42, ymin=0.3, ymax=0.4)+
+  ggtitle("Warming")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(warm_t1$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+#NO PAM
+herb_t1_w_plot=ggplot(herb_t1_w_df, aes(x=V1, y=V2, color=warm_t1$herbivory))+
+  geom_point(aes(shape=warm_t1$herbivory, color=warm_t1$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+
+  ggtitle("Warming")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(warm_t1$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+g_new_w <- randomForest(warm_t1[, 44:264], y=as.factor(warm_t1$herbivory), keep.forest=TRUE, proximity=TRUE)
+table(predict(g_new_w, warm_t1[, 44:264]), herb_t1_w_pam$clustering)
+
+print(g_new_w)
+t1_herb<-ggarrange(herb_t1_c_plot,herb_t1_s_plot,herb_t1_w_plot,nrow=1, ncol=3, common.legend = TRUE,labels = c("A", "B", "C"))
+t1_herb
+names(warm_t1)
+b.rf<-randomForest(warm_t1$herbivory ~ ., data=warm_t1[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=1000000, proximity=T) 
+
+warm_t1$herbivory<-factor(warm_t1$herbivory)
+
+t1_herbx<-ggarrange(t1_herb_plot,herb_t1_c_plot,herb_t1_s_plot,herb_t1_w_plot,nrow=1, ncol=4, common.legend = TRUE,labels = c("A", "B", "C", "D"))
+t1_herbx
+##########################################################
+
+########################July 5 looking at the herbivory for each climate treatment separately)##############################
+#total herb T2
+
+t2_herb1<-randomForest( x=t2[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+print(t2_herb1)
+t2_herb1_pam <- pam(1-t2_herb1$proximity, k=2, diss = TRUE)
+t2_herb1_pam$clustering<-factor(t2_herb1_pam$clustering)
+t2$herbivory<-factor(t2$herbivory)
+mytable_t2_herb<-table(t2_herb1_pam$clustering, t2$herbivory)
+
+
+t2_herb1_prox<-cmdscale(1-t2_herb1$proximity)
+t2_herb1_df<-as.data.frame(t2_herb1_prox, row.names = NULL)
+#PAM
+t2_herb_plot=ggplot(t2_herb1_df, aes(x=V1, y=V2, color=t2$herbivory))+
+  geom_point(aes(shape=t2_herb1_pam$clustering, color=t2$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  annotation_custom(tableGrob(mytable_t2_herb), xmin=0.2, xmax=0.4, ymin=0.3, ymax=0.4)+
+  ggtitle("July 5")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(t2$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+#NO PAM
+t2_herb_plot=ggplot(t2_herb1_df, aes(x=V1, y=V2, color=t2$herbivory))+
+  geom_point(aes(shape=t2$herbivory, color=t2$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+
+  ggtitle("July 5")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(t2$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+
+  
+  ggtitle("July 5")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+ stat_ellipse(aes(x = V1,y=V2,fill=factor(t2$herbivory)),
+              geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+print(g_new_w)
+
+plot(g_new_w)
+print(g_new_w)
+g_new_w$predicted
+
+classification <- cbind(t2[1:2], g_new_w$predicted)
+classification
+
+varimp <- importance(g_new_w, scale=TRUE)[,3]
+sort(varimp)
+
+
+
+
+names(t2)
+
+b.rf<-randomForest(t2$herbivory ~ ., data=t2[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=1000000, proximity=T) 
+names(t2)
+#control
+herb_t2_c<-randomForest( x=control_t2[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+
+herb_t2_c_pam <- pam(1-herb_t2_c$proximity, k=2, diss = TRUE)
+herb_t2_c_pam$clustering<-factor(herb_t2_c_pam$clustering)
+control_t2$herbivory<-factor(control_t2$herbivory)
+mytable_c2<-table(herb_t2_c_pam$clustering, control_t2$herbivory)
+
+
+herb_t2_c_prox<-cmdscale(1-herb_t2_c$proximity)
+herb_t2_c_df<-as.data.frame(herb_t2_c_prox, row.names = NULL)
+
+#PAM
+herb_t2_c_plot=ggplot(herb_t2_c_df, aes(x=V1, y=V2, color=control_t2$herbivory))+
+  geom_point(aes(shape=herb_t2_c_pam$clustering, color=control_t2$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  annotation_custom(tableGrob(mytable_c2), xmin=-0.6, xmax=-0.5, ymin=-0.3, ymax=-0.25)+
+  ggtitle("Control")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(control_t2$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+#NO PAM
+herb_t2_c_plot=ggplot(herb_t2_c_df, aes(x=V1, y=V2, color=control_t2$herbivory))+
+  geom_point(aes(shape=control_t2$herbivory, color=control_t2$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+
+  ggtitle("Control")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(control_t2$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+g_new <- randomForest(control_t2[, 44:264], y=as.factor(herb_t2_c_pam$clustering), keep.forest=TRUE, proximity=TRUE)
+table(predict(g_new, control_t2[, 44:264]), herb_t2_c_pam$clustering)
+
+
+#shading
+herb_t2_s<-randomForest( x=shading_t2[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+
+herb_t2_s_pam <- pam(1-herb_t2_s$proximity, k=2, diss = TRUE)
+herb_t2_s_pam$clustering<-factor(herb_t2_s_pam$clustering)
+shading_t2$herbivory<-factor(shading_t2$herbivory)
+mytable_s2<-table(herb_t2_s_pam$clustering, shading_t2$herbivory)
+
+
+herb_t2_s_prox<-cmdscale(1-herb_t2_s$proximity)
+herb_t2_s_df<-as.data.frame(herb_t2_s_prox, row.names = NULL)
+
+#PAM
+herb_t2_s_plot=ggplot(herb_t2_s_df, aes(x=V1, y=V2, color=shading_t2$herbivory))+
+  geom_point(aes(shape=herb_t2_s_pam$clustering, color=shading_t2$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  annotation_custom(tableGrob(mytable_s2), xmin=0.5, xmax=0.6, ymin=0.28, ymax=0.35)+
+  ggtitle("Shading")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(shading_t2$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+#NO PAM
+herb_t2_s_plot=ggplot(herb_t2_s_df, aes(x=V1, y=V2, color=shading_t2$herbivory))+
+  geom_point(aes(shape=shading_t2$herbivory, color=shading_t2$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  ggtitle("Shading")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(shading_t2$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+set.seed=3
+g_new_s <- randomForest(shading_t2[, 44:264], y=as.factor(herb_t2_s_pam$clustering), keep.forest=TRUE, proximity=TRUE)
+table(predict(g_new_s, shading_t2[, 44:264]), herb_t2_s_pam$clustering)
+
+varimp.t2_s <- importance(g_new_s, scale=TRUE)[,3] #variable importance with highest values ->more imp
+print(g_new_s)
+sort(varimp.t2_s)
+varImpPlot(herb_t2_s)
+
+
+
+
+#warming
+herb_t2_w<-randomForest( x=warm_t2[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+
+herb_t2_w_pam <- pam(1-herb_t2_w$proximity, k=2, diss = TRUE)
+herb_t2_w_pam$clustering<-factor(herb_t2_w_pam$clustering)
+warm_t2$herbivory<-factor(warm_t2$herbivory)
+mytable_w2<-table(herb_t2_w_pam$clustering, warm_t2$herbivory)
+
+
+herb_t2_w_prox<-cmdscale(1-herb_t2_w$proximity)
+herb_t2_w_df<-as.data.frame(herb_t2_w_prox, row.names = NULL)
+
+#PAM
+herb_t2_w_plot=ggplot(herb_t2_w_df, aes(x=V1, y=V2, color=warm_t2$herbivory))+
+  geom_point(aes(shape=herb_t2_w_pam$clustering, color=warm_t2$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  annotation_custom(tableGrob(mytable_w2), xmin=-0.51, xmax=-0.4, ymin=-0.51, ymax=-0.4)+
+  ggtitle("Warming")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(warm_t2$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+#NO PAM
+herb_t2_w_plot=ggplot(herb_t2_w_df, aes(x=V1, y=V2, color=warm_t2$herbivory))+
+  geom_point(aes(shape=warm_t2$herbivory, color=warm_t2$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+
+  ggtitle("Warming")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(warm_t2$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+g_new_w <- randomForest(warm_t2[, 44:264], y=as.factor(herb_t2_w_pam$clustering), keep.forest=TRUE, proximity=TRUE)
+table(predict(g_new_w, warm_t2[, 44:264]), herb_t2_w_pam$clustering)
+
+t1_herb<-ggarrange(herb_t2_c_plot,herb_t2_s_plot,herb_t2_w_plot,nrow=1, ncol=3, common.legend = TRUE,labels = c("A", "B", "C"))
+t1_herb
+
+
+t1_herbx<-ggarrange(t1_herb_plot,herb_t2_c_plot,herb_t2_s_plot,herb_t2_w_plot,nrow=1, ncol=4, common.legend = TRUE,labels = c("A", "B", "C", "D"))
+t1_herbx
+
+varimp.t2_c <- importance(herb_t2_c, scale=TRUE)[,3] #variable importance with highest values ->more imp
+sort(varimp.t2_c)
+varImpPlot(herb_t2_c)
+
+varimp.t2_s <- importance(herb_t2_s, scale=TRUE)[,3] #variable importance with highest values ->more imp
+sort(varimp.t2_s)
+varImpPlot(herb_t2_s)
+
+varimp.t2_w <- importance(herb_t2_w, scale=TRUE)[,3] #variable importance with highest values ->more imp
+sort(varimp.t2_w)
+varImpPlot(herb_t2_w)
+
+
+
+t2_herb<-ggarrange(herb_t2_c_plot,herb_t2_s_plot,herb_t2_w_plot,nrow=1, ncol=3, common.legend = TRUE,labels = c("A", "B", "C"))
+t2_herb
+
+
+t2_herbx<-ggarrange(t2_herb_plot,herb_t2_c_plot,herb_t2_s_plot,herb_t2_w_plot,nrow=1, ncol=4, common.legend = TRUE,labels = c("A", "B", "C", "D"))
+t2_herbx
+
+
+
+
+###############################################################
+
+########################July 11 looking at the herbivory for each climate treatment separately)##############################
+#total herb t3
+
+t3_herb1<-randomForest( x=t3[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+
+t3_herb1_pam <- pam(1-t3_herb1$proximity, k=2, diss = TRUE)
+t3_herb1_pam$clustering<-factor(t3_herb1_pam$clustering)
+t3$herbivory<-factor(t3$herbivory)
+mytable_t3_herb<-table(t3_herb1_pam$clustering, t3$herbivory)
+
+
+t3_herb1_prox<-cmdscale(1-t3_herb1$proximity)
+t3_herb1_df<-as.data.frame(t3_herb1_prox, row.names = NULL)
+
+#PAM
+t3_herb_plot=ggplot(t3_herb1_df, aes(x=V1, y=V2, color=t3$herbivory))+
+  geom_point(aes(shape=t3_herb1_pam$clustering, color=t3$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  annotation_custom(tableGrob(mytable_t3_herb), xmin=-0.4, xmax=-0.3, ymin=-0.43, ymax=-0.3)+
+  ggtitle("July 11")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(t3$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+#NO PAM
+t3_herb_plot=ggplot(t3_herb1_df, aes(x=V1, y=V2, color=t3$herbivory))+
+  geom_point(aes(shape=t3$herbivory, color=t3$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+
+  ggtitle("July 11")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(t3$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+#control
+herb_t3_c<-randomForest( x=control_t3[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+
+herb_t3_c_pam <- pam(1-herb_t3_c$proximity, k=2, diss = TRUE)
+herb_t3_c_pam$clustering<-factor(herb_t3_c_pam$clustering)
+control_t3$herbivory<-factor(control_t3$herbivory)
+mytable_c3<-table(herb_t3_c_pam$clustering, control_t3$herbivory)
+
+
+herb_t3_c_prox<-cmdscale(1-herb_t3_c$proximity)
+herb_t3_c_df<-as.data.frame(herb_t3_c_prox, row.names = NULL)
+#PAM
+herb_t3_c_plot=ggplot(herb_t3_c_df, aes(x=V1, y=V2, color=control_t3$herbivory))+
+  geom_point(aes(shape=herb_t3_c_pam$clustering, color=control_t3$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  annotation_custom(tableGrob(mytable_c3), xmin=0.4, xmax=0.6, ymin=0.27, ymax=0.35)+
+  ggtitle("Control")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(control_t3$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+#NO PAM
+herb_t3_c_plot=ggplot(herb_t3_c_df, aes(x=V1, y=V2, color=control_t3$herbivory))+
+  geom_point(aes(shape=control_t3$herbivory, color=control_t3$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+
+  ggtitle("Control")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(control_t3$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+g_new <- randomForest(control_t3[, 44:264], y=as.factor(herb_t3_c_pam$clustering), keep.forest=TRUE, proximity=TRUE)
+table(predict(g_new, control_t3[, 44:264]), herb_t3_c_pam$clustering)
+
+
+#shading
+herb_t3_s<-randomForest( x=shading_t3[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+
+herb_t3_s_pam <- pam(1-herb_t3_s$proximity, k=2, diss = TRUE)
+herb_t3_s_pam$clustering<-factor(herb_t3_s_pam$clustering)
+shading_t3$herbivory<-factor(shading_t3$herbivory)
+mytable_s3<-table(herb_t3_s_pam$clustering, shading_t3$herbivory)
+
+
+herb_t3_s_prox<-cmdscale(1-herb_t3_s$proximity)
+herb_t3_s_df<-as.data.frame(herb_t3_s_prox, row.names = NULL)
+
+#PAM
+herb_t3_s_plot=ggplot(herb_t3_s_df, aes(x=V1, y=V2, color=shading_t3$herbivory))+
+  geom_point(aes(shape=herb_t3_s_pam$clustering, color=shading_t3$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  annotation_custom(tableGrob(mytable_s3), xmin=0.38, xmax=0.43, ymin=0.42, ymax=0.49)+
+  ggtitle("Shading")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(shading_t3$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+#NO PAM
+herb_t3_s_plot=ggplot(herb_t3_s_df, aes(x=V1, y=V2, color=shading_t3$herbivory))+
+  geom_point(aes(shape=shading_t3$herbivory, color=shading_t3$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+
+  ggtitle("Shading")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(shading_t3$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+g_new_s <- randomForest(shading_t3[, 44:264], y=as.factor(herb_t3_s_pam$clustering), keep.forest=TRUE, proximity=TRUE)
+table(predict(g_new_s, shading_t3[, 44:264]), herb_t3_s_pam$clustering)
+
+#warming
+herb_t3_w<-randomForest( x=warm_t3[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=100000, proximity=T) 
+
+herb_t3_w_pam <- pam(1-herb_t3_w$proximity, k=2, diss = TRUE)
+herb_t3_w_pam$clustering<-factor(herb_t3_w_pam$clustering)
+warm_t3$herbivory<-factor(warm_t3$herbivory)
+mytable_w3<-table(herb_t3_w_pam$clustering, warm_t3$herbivory)
+
+
+herb_t3_w_prox<-cmdscale(1-herb_t3_w$proximity)
+herb_t3_w_df<-as.data.frame(herb_t3_w_prox, row.names = NULL)
+
+#PAM
+herb_t3_w_plot=ggplot(herb_t3_w_df, aes(x=V1, y=V2, color=warm_t3$herbivory))+
+  geom_point(aes(shape=herb_t3_w_pam$clustering, color=warm_t3$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+  annotation_custom(tableGrob(mytable_w3), xmin=0.35, xmax=0.42, ymin=0.33, ymax=0.4)+
+  ggtitle("Warming")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(warm_t3$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+#NO PAM
+herb_t3_w_plot=ggplot(herb_t3_w_df, aes(x=V1, y=V2, color=warm_t3$herbivory))+
+  geom_point(aes(shape=warm_t3$herbivory, color=warm_t3$herbivory),size=4.5)+theme_classic()+
+  guides(col=guide_legend("Herbivory"),
+         shape=guide_legend("PAM cluster"))+
+
+  ggtitle("Warming")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(warm_t3$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+g_new_w <- randomForest(warm_t3[, 44:264], y=as.factor(herb_t3_w_pam$clustering), keep.forest=TRUE, proximity=TRUE)
+table(predict(g_new_w, warm_t3[, 44:264]), herb_t3_w_pam$clustering)
+
+t1_herb<-ggarrange(herb_t3_c_plot,herb_t3_s_plot,herb_t3_w_plot,nrow=1, ncol=3, common.legend = TRUE,labels = c("A", "B", "C"))
+t1_herb
+
+
+t1_herbx<-ggarrange(t1_herb_plot,herb_t3_c_plot,herb_t3_s_plot,herb_t3_w_plot,nrow=1, ncol=4, common.legend = TRUE,labels = c("A", "B", "C", "D"))
+t1_herbx
+
+varimp.t3_w <- importance(herb_t3_w, scale=TRUE)[,3] #variable importance with highest values ->more imp
+sort(varimp.t3_w)
+varImpPlot(herb_t3_w)
+
+
+
+t3_herb<-ggarrange(herb_t3_c_plot,herb_t3_s_plot,herb_t3_w_plot,nrow=1, ncol=3, common.legend = TRUE,labels = c("A", "B", "C"))
+t3_herb
+
+
+t3_herbx<-ggarrange(t3_herb1_plot,herb_t3_c_plot,herb_t3_s_plot,herb_t3_w_plot,nrow=1, ncol=4, common.legend = TRUE,labels = c("A", "B", "C", "D"))
+t3_herbx
+
+
+
+
+
+###############################################################
+
+#total herbivory graph
+total_herbivory_graph<-ggarrange(t1_herb_plot,herb_t1_c_plot,herb_t1_s_plot,herb_t1_w_plot,
+                                 t2_herb_plot,herb_t2_c_plot,herb_t2_s_plot,herb_t2_w_plot,
+                                 t3_herb_plot,herb_t3_c_plot,herb_t3_s_plot,herb_t3_w_plot,
+                                 nrow=3, ncol=4, common.legend = TRUE,
+                                 labels = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"))
+total_herbivory_graph
+
+
+
+
+###########SUPERVISED RF FOR July 5 to obtain error matrix ####################
+#T2 total
+t2_total <- randomForest(t2[, 44:264], y=as.factor(t2$herbivory), keep.forest=T, proximity=TRUE, mtry=15, importance=T, do.trace=1000, ntree=100000)
+print(t2_total)
+t2.prox<-cmdscale(1-t2_total$proximity)
+t2_df<-as.data.frame(t2.prox, row.names = NULL)
+
+t2_ell=ggplot(t2_df, aes(x=V1, y=V2, color=t2$herbivory))+
+  geom_point(aes(shape=t2$herbivory, color=t2$herbivory),size=4.5)+theme_classic()+
+  labs(fill = "Herbivory")+
+ggtitle("July 5")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(t2$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+t2_non_ell=ggplot(t2_df, aes(x=V1, y=V2, color=t2$herbivory))+
+  geom_point(aes(shape=t2$herbivory, color=t2$herbivory),size=4.5)+theme_classic()+
+  labs(fill = "Herbivory")+
+  ggtitle("July 5")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme
+
+#t2_control
+
+t2_control <- randomForest(control_t2[, 44:264], y=as.factor(control_t2$herbivory), keep.forest=T, proximity=TRUE, mtry=15, importance=T, do.trace=1000, ntree=100000)
+print(t2_control)
+b.rf<-randomForest(control_t2$herbivory ~ ., data=control_t2[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=10000, proximity=T) 
+
+
+t2_control.prox<-cmdscale(1-t2_control$proximity)
+t2_control_df<-as.data.frame(t2_control.prox, row.names = NULL)
+
+t2_control_ell=ggplot(t2_control_df, aes(x=V1, y=V2, color=control_t2$herbivory))+
+  geom_point(aes(shape=control_t2$herbivory, color=control_t2$herbivory),size=4.5)+theme_classic()+
+  labs(fill = "Herbivory")+
+  ggtitle("Control")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(control_t2$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+t2_control_non_ell=ggplot(t2_control_df, aes(x=V1, y=V2, color=control_t2$herbivory))+
+  geom_point(aes(shape=control_t2$herbivory, color=control_t2$herbivory),size=4.5)+theme_classic()+
+  labs(fill = "Herbivory")+
+  ggtitle("Control")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme
+
+#t2 S
+#t2_control
+
+t2_shading <- randomForest(shading_t2[, 44:264], y=as.factor(shading_t2$herbivory), keep.forest=T, proximity=TRUE, mtry=15, importance=T, do.trace=1000, ntree=100000)
+print(t2_shading)
+b.rf<-randomForest(shading_t2$herbivory ~ ., data=shading_t2[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=10000, proximity=T) 
+
+
+t2_shading.prox<-cmdscale(1-t2_shading$proximity)
+t2_shading_df<-as.data.frame(t2_shading.prox, row.names = NULL)
+
+t2_shading_ell=ggplot(t2_shading_df, aes(x=V1, y=V2, color=shading_t2$herbivory))+
+  geom_point(aes(shape=shading_t2$herbivory, color=shading_t2$herbivory),size=4.5)+theme_classic()+
+  labs(fill = "Herbivory")+
+  ggtitle("Shading")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(shading_t2$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+t2_shading_non_ell=ggplot(t2_shading_df, aes(x=V1, y=V2, color=shading_t2$herbivory))+
+  geom_point(aes(shape=shading_t2$herbivory, color=shading_t2$herbivory),size=4.5)+theme_classic()+
+  labs(fill = "Herbivory")+
+  ggtitle("Shading")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme
+
+#W
+t2_warming <- randomForest(warm_t2[, 44:264], y=as.factor(warm_t2$herbivory), keep.forest=T, proximity=TRUE, mtry=15, importance=T, do.trace=1000, ntree=100000)
+print(t2_warming)
+b.rf<-randomForest(warm_t2$herbivory ~ ., data=warm_t2[, 44:264], mtry=15, importance=T, do.trace=1000, ntree=10000, proximity=T) 
+
+
+t2_warming.prox<-cmdscale(1-t2_warming$proximity)
+t2_warming_df<-as.data.frame(t2_warming.prox, row.names = NULL)
+
+t2_warming_ell=ggplot(t2_warming_df, aes(x=V1, y=V2, color=warm_t2$herbivory))+
+  geom_point(aes(shape=warm_t2$herbivory, color=warm_t2$herbivory),size=4.5)+theme_classic()+
+  labs(fill = "Herbivory")+
+  ggtitle("Warming")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme+
+  stat_ellipse(aes(x = V1,y=V2,fill=factor(warm_t2$herbivory)),
+               geom="polygon",level=0.95,alpha=0.2)+guides(fill = FALSE)   +
+  scale_fill_manual(values=c("#440154FF", "#DCE318FF"))
+
+t2_warming_non_ell=ggplot(t2_warming_df, aes(x=V1, y=V2, color=warm_t2$herbivory))+
+  geom_point(aes(shape=warm_t2$herbivory, color=warm_t2$herbivory),size=4.5)+theme_classic()+
+  labs(fill = "Herbivory")+
+  ggtitle("Warming")+
+  scale_color_manual(values=c("#440154FF", "#DCE318FF"))+my_theme
+
+total_herbivory_graph_supervised_ell<-ggarrange(t2_ell, t2_control_ell,t2_shading_ell, t2_warming_ell,
+                                 nrow=1, ncol=4, common.legend = TRUE,
+                                 labels = c("A", "B", "C", "D"))
+total_herbivory_graph_supervised_ell
+
+
+total_herbivory_graph_supervised_nonell<-ggarrange(t2_non_ell, t2_control_non_ell,t2_shading_non_ell, t2_warming_non_ell,
+                                            nrow=1, ncol=4, common.legend = TRUE,
+                                            labels = c("A", "B", "C", "D"))
+total_herbivory_graph_supervised_nonell
+
+
+
+###############Variable importance for T2 July 5 ####################
+ #model names:  
+
+#total  t2_total
+#control t2_control
+#shading t2_shading
+#warming #t2_warming
+
+#total
+varimp.t2_total <- importance(t2_total, scale=TRUE)[,3] #variable importance with highest values ->more imp
+sort(varimp.t2_total)
+varImpPlot(t2_total)
+
+#control
+varimp.t2_control <- importance(t2_control, scale=TRUE)[,3] #variable importance with highest values ->more imp
+sort(varimp.t2_control)
+varImpPlot(t2_control)
+
+
+#shading
+varimp.t2_shading <- importance(t2_shading, scale=TRUE)[,3] #variable importance with highest values ->more imp
+sort(varimp.t2_shading)
+varImpPlot(t2_shading)
+
+#warming
+varimp.t2_warming <- importance(t2_warming, scale=TRUE)[,3] #variable importance with highest values ->more imp
+sort(varimp.t2_warming)
+varImpPlot(t2_warming)
+
+#VARIABLE IMPORTANCE GRAPHS 
+#TOTAL
+varimp.t2_total_df <-as.data.frame(varimp.t2_total )
+varimp.t2_total_df <- tibble::rownames_to_column(varimp.t2_total_df, "VOC")
+varimp.t2_total_df<-varimp.t2_total_df %>% arrange(desc(varimp.t2_total), VOC)
+write.csv(varimp.t2_total_df, "16012021_t2_total_varimp.csv")
+
+t2_plot<-varimp.t2_total_df[1:20,]
+names(t2_plot)[2] <- "Variable_importance"
+
+ggplot(data=t2_plot, aes(x=Variable_importance, y=VOC)) +theme_classic()+
+  geom_bar(stat="identity", fill="steelblue")+
+  theme_minimal()
+
+
+t2_graph=ggplot(data=t2_plot, mapping = aes(x = reorder(VOC,Variable_importance), Variable_importance), col=Variable_importance)+
+  theme_classic()+geom_bar(stat="identity")+
+  coord_flip()+scale_fill_brewer(palette="Set2")+ggtitle("July 5")+
+  labs(x=expression(VOC),
+  y=expression(Variable~importance))+theme(legend.position = "none")+
+  theme(panel.background = element_rect(colour = "black", size=1, fill=NA))
+
+
+#CONTROL
+varimp.t2_control_df <-as.data.frame(varimp.t2_control )
+varimp.t2_control_df <- tibble::rownames_to_column(varimp.t2_control_df, "VOC")
+varimp.t2_control_df<-varimp.t2_control_df %>% arrange(desc(varimp.t2_control), VOC)
+write.csv(varimp.t2_control_df, "16012021_t2_control_varimp.csv")
+
+t2_plot_control<-varimp.t2_control_df[1:20,]
+names(t2_plot_control)[2] <- "Variable_importance"
+
+ggplot(data=t2_plot_control, aes(x=Variable_importance, y=VOC)) +theme_classic()+
+  geom_bar(stat="identity", fill="steelblue")+
+  theme_minimal()
+
+
+t2_graph_control=ggplot(data=t2_plot_control, mapping = aes(x = reorder(VOC,Variable_importance), Variable_importance), col=Variable_importance)+
+  theme_classic()+geom_bar(stat="identity")+
+  coord_flip()+scale_fill_brewer(palette="Set2")+ggtitle("Control")+
+  labs(x=expression(VOC),
+       y=expression(Variable~importance))+theme(legend.position = "none")+
+  theme(panel.background = element_rect(colour = "black", size=1, fill=NA))
+
+#shading
+varimp.t2_shading_df <-as.data.frame(varimp.t2_shading )
+varimp.t2_shading_df <- tibble::rownames_to_column(varimp.t2_shading_df, "VOC")
+varimp.t2_shading_df<-varimp.t2_shading_df %>% arrange(desc(varimp.t2_shading), VOC)
+write.csv(varimp.t2_shading_df, "16012021_t2_shading_varimp.csv")
+
+t2_plot_shading<-varimp.t2_shading_df[1:20,]
+names(t2_plot_shading)[2] <- "Variable_importance"
+
+ggplot(data=t2_plot_shading, aes(x=Variable_importance, y=VOC)) +theme_classic()+
+  geom_bar(stat="identity", fill="steelblue")+
+  theme_minimal()
+
+
+t2_graph_shading=ggplot(data=t2_plot_shading, mapping = aes(x = reorder(VOC,Variable_importance), Variable_importance), col=Variable_importance)+
+  theme_classic()+geom_bar(stat="identity")+
+  coord_flip()+scale_fill_brewer(palette="Set2")+ggtitle("Shading")+
+  labs(x=expression(VOC),
+       y=expression(Variable~importance))+theme(legend.position = "none")+
+  theme(panel.background = element_rect(colour = "black", size=1, fill=NA))
+
+
+
+
+#warming
+varimp.t2_warming_df <-as.data.frame(varimp.t2_warming )
+varimp.t2_warming_df <- tibble::rownames_to_column(varimp.t2_warming_df, "VOC")
+varimp.t2_warming_df<-varimp.t2_warming_df %>% arrange(desc(varimp.t2_warming), VOC)
+write.csv(varimp.t2_warming_df, "16012021_t2_warming_varimp.csv")
+
+t2_plot_warming<-varimp.t2_warming_df[1:20,]
+names(t2_plot_warming)[2] <- "Variable_importance"
+
+ggplot(data=t2_plot_warming, aes(x=Variable_importance, y=VOC)) +theme_classic()+
+  geom_bar(stat="identity", fill="steelblue")+
+  theme_minimal()
+
+
+t2_graph_warming=ggplot(data=t2_plot_warming, mapping = aes(x = reorder(VOC,Variable_importance), Variable_importance), col=Variable_importance)+
+  theme_classic()+geom_bar(stat="identity")+
+  coord_flip()+scale_fill_brewer(palette="Set2")+ggtitle("Warming")+
+  labs(x=expression(VOC),
+       y=expression(Variable~importance))+theme(legend.position = "none")+
+  theme(panel.background = element_rect(colour = "black", size=1, fill=NA))
+
+
+
+T2_variable_importance<-ggarrange(t2_graph,t2_graph_control,t2_graph_shading,t2_graph_warming,
+                                                   nrow=1, ncol=4, common.legend = TRUE,
+                                                   labels = c("A", "B", "C", "D"))
+T2_variable_importance
+
+
+
+total_herbivory_graph_supervised_ell<-ggarrange(t2_ell, t2_control_ell,t2_shading_ell, t2_warming_ell,
+                                                nrow=1, ncol=4, common.legend = TRUE,
+                                                labels = c("A", "B", "C", "D"))
+total_herbivory_graph_supervised_ell
+
+
+total_herbivory_graph_supervised_nonell<-ggarrange(t2_non_ell, t2_control_non_ell,t2_shading_non_ell, t2_warming_non_ell,
+                                                   nrow=1, ncol=4, common.legend = TRUE,
+                                                   labels = c("A", "B", "C", "D"))
+total_herbivory_graph_supervised_nonell
+
+
+var_imp_ell=ggarrange(t2_ell, t2_control_ell,t2_shading_ell, t2_warming_ell,
+                      t2_graph,t2_graph_control,t2_graph_shading,t2_graph_warming,
+                      nrow=2, ncol=4, common.legend = TRUE,
+                      labels = c("A", "B", "C", "D", "E", "F", "G", "H"))
+
+var_imp_non_ell=ggarrange(t2_non_ell, t2_control_non_ell,t2_shading_non_ell, t2_warming_non_ell,
+                      t2_graph,t2_graph_control,t2_graph_shading,t2_graph_warming,
+                      nrow=2, ncol=4, common.legend = TRUE,
+                      labels = c("A", "B", "C", "D", "E", "F", "G", "H"))
+                   
+
+
+################### T.TEST FOR EMIISIONS OF VARIABLE IMPRTANCE COMPOUNDS #############
+library(matrixTests)
+names(d1)
+d1$warming
+July5<-subset(d1,(Date=="05.07.2018")) #Y
+July5_control<-subset(July5,(warming=="C")) #Y
+July5_shading<-subset(July5,(warming=="S")) #Y
+July5_warming<-subset(July5,(warming=="W")) #Y
+
+July5 <- July5[,c(20,43:263)]
+July5_control <- July5_control[,c(20,43:263)]
+July5_shading <- July5_shading[,c(20,43:263)]
+July5_warming <- July5_warming[,c(20,43:263)]
+
+#JULY 5 total
+July5_C<-subset(July5,(herbivory=="C")) #Y
+July5_H<-subset(July5,(herbivory=="H")) #Y
+
+July5_C1 <- July5_C[July5_C[,1]=="C",-1]
+July5_H1  <- July5_H[July5_H[,1]=="H",-1]
+
+July_5_result <- col_t_welch(July5_C1, July5_H1)
+write.csv(July_5_result, "19012021_July5_t.test.csv")
+#control
+July5_C_control<-subset(July5_control,(herbivory=="C")) #Y
+July5_H_control<-subset(July5_control,(herbivory=="H")) #Y
+
+July5_C1_control <- July5_C_control[July5_C_control[,1]=="C",-1]
+July5_H1_control  <- July5_H_control[July5_H_control[,1]=="H",-1]
+
+July_5_result_control <- col_t_welch(July5_C1_control, July5_H1_control)
+write.csv(July_5_result_control, "19012021_July5_control_t.test.csv")
+
+#shading
+July5_C_shading<-subset(July5_shading,(herbivory=="C")) #Y
+July5_H_shading<-subset(July5_shading,(herbivory=="H")) #Y
+
+July5_C1_shading <- July5_C_shading[July5_C_shading[,1]=="C",-1]
+July5_H1_shading  <- July5_H_shading[July5_H_shading[,1]=="H",-1]
+
+July_5_result_shading <- col_t_welch(July5_C1_shading, July5_H1_shading)
+write.csv(July_5_result_shading, "19012021_July5_shading_t.test.csv")
+
+#warming
+
+July5_C_warming<-subset(July5_warming,(herbivory=="C")) #Y
+July5_H_warming<-subset(July5_warming,(herbivory=="H")) #Y
+
+July5_C1_warming <- July5_C_warming[July5_C_warming[,1]=="C",-1]
+July5_H1_warming  <- July5_H_warming[July5_H_warming[,1]=="H",-1]
+
+July_5_result_warming <- col_t_welch(July5_C1_warming, July5_H1_warming)
+write.csv(July_5_result_warming, "19012021_July5_warming_t.test.csv")
+
+
+t.test(July5$DMNT[July5$herbivory == "C"], July5$DMNT[July5$herbivory == "H"])
+t.test(July5_control$DMNT[July5_control$herbivory == "C"], July5_control$DMNT[July5_control$herbivory == "H"])
+t.test(July5_shading$DMNT[July5_shading$herbivory == "C"], July5_shading$DMNT[July5_shading$herbivory == "H"])
+t.test(July5_warming$DMNT[July5_warming$herbivory == "C"], July5_warming$DMNT[July5_warming$herbivory == "H"])
+
+
+#####29012021_individual compounds from RF##########
+
+my_theme=theme(text = element_text(size=12),
+               
+               axis.text.x = element_text(size = 14),
+               axis.text.y = element_text(size = 14),
+               axis.title.x=element_blank(),
+               axis.title.y=element_blank(),
+               strip.background = element_blank()
+)  
+
+names(d1)
+July5<-subset(d1,(Date=="05.07.2018")) #Y
+dmnt <- ggplot(July5, aes(x=herbivory, y=DMNT, fill=herbivory)) +
+  facet_wrap(. ~ warming, ncol=3, nrow=1)+
+  geom_boxplot(alpha=0.5) +
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="black", fill="black") +ggtitle("   DMNT")+
+  theme(legend.position="none") +
+  scale_fill_manual(values = alpha(c("#440154FF", "#DCE318FF"), .3))+theme_classic()+my_theme+
+  labs(x=expression(Treatment),
+ y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+
+
+#"Butanenitrile, 2-methyl-"   
+
+July5$`Butanenitrile, 2-methyl-`
+
+nitro1<- ggplot(July5, aes(x=herbivory, y=July5$`Butanenitrile, 2-methyl-`, fill=herbivory)) +ggtitle("2-methylbutanenitrile")+
+  facet_wrap(. ~ warming, ncol=3, nrow=1)+
+  geom_boxplot(alpha=0.5) +
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="black", fill="black") +
+  theme(legend.position="none") +
+  scale_fill_manual(values = alpha(c("#440154FF", "#DCE318FF"), .3))+theme_classic()+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+
+nitro2<- ggplot(July5, aes(x=herbivory, y=July5$`Benzyl nitrile`, fill=herbivory)) +ggtitle("benzyl nitrile")+
+  facet_wrap(. ~ warming, ncol=3, nrow=1)+
+  geom_boxplot(alpha=0.5) +
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="black", fill="black") +
+  theme(legend.position="none") +
+  scale_fill_manual(values = alpha(c("#440154FF", "#DCE318FF"), .3))+theme_classic()+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+
+names(July5)
+
+MT1<- ggplot(July5, aes(x=herbivory, y=July5$`a-Ocimene`, fill=herbivory)) +ggtitle("   a-ocimene")+
+  facet_wrap(. ~ warming, ncol=3, nrow=1)+
+  
+  geom_boxplot(alpha=0.5) +
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="black", fill="black") +
+  theme(legend.position="none") +
+  scale_fill_manual(values = alpha(c("#440154FF", "#DCE318FF"), .3))+theme_classic()+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+MT2<- ggplot(July5, aes(x=herbivory, y=Linalool, fill=herbivory)) +ggtitle("linalool")+
+  facet_wrap(. ~ warming, ncol=3, nrow=1)+
+  geom_boxplot(alpha=0.5) +
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="black", fill="black") +
+  theme(legend.position="none") +
+  scale_fill_manual(values = alpha(c("#440154FF", "#DCE318FF"), .3))+theme_classic()+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+
+benz=ggplot(July5, aes(x=herbivory, y=Indole, fill=herbivory)) +ggtitle("indole")+
+  facet_wrap(. ~ warming, ncol=3, nrow=1)+
+  geom_boxplot(alpha=0.5) +
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="black", fill="black") +
+  theme(legend.position="none") +
+  scale_fill_manual(values = alpha(c("#440154FF", "#DCE318FF"), .3))+theme_classic()+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+
+
+
+
+ggarrange(dmnt, nitro2,benz, MT1, MT2,nitro1,  nrow=3, ncol=3, common.legend = TRUE,labels = c("(a)", "(b)", "(c)", "(d)", "(e)", "(f)"))
+          

@@ -1,0 +1,68 @@
+#########################################################
+##################RANDOM FOREST#########################################
+########################################################################
+
+library("randomForest")
+
+
+detach()
+rm(list=ls(all=TRUE))
+
+setwd("/Users/junker/Documents/Uni Salzburg/Presentations/conferences/Denmark-PhD course_Riikka")
+list.files()
+
+#
+b<-read.table("Brassica_bac_scent_ng_relevant.txt", header=T) ## trait
+#b<-read.table("Brassica_bac_scent_relative_relevant.txt", header=T) ## trait
+attach(b)
+names(b)
+head(b)
+dim(b)
+
+
+#####flower
+#mtry=sqrt(factors)
+
+names(b)
+dim(b)
+sqrt(34-2)
+
+b.rf<-randomForest(b$treatment ~ ., data=b[, 2:34], mtry=6, importance=T, do.trace=1000, ntree=10000, proximity=T) 
+
+plot(b.rf)
+print(b.rf)
+b.rf$predicted
+
+classification <- cbind(b[1:2], b.rf$predicted)
+classification
+
+varimp <- importance(b.rf, scale=TRUE)[,3]
+sort(varimp)
+
+# write.table(sort(varimp), "variableImportance_flower_newbac.txt")
+varImpPlot(b.rf)
+
+
+#b.prox<-randomForest(b.rf, ntree=10000, proximity=T, na.action = na.omit)$proximity
+b.mds<-cmdscale(1-b.rf$proximity)
+plot(b.mds, col=c("black", "magenta", "green")[b$treatment], pch=16)
+
+
+
+#whether changes in concentration
+boxplot(Acetoin ~ treatment)
+t.test(Acetoin[treatment == "sterile"], Acetoin[treatment == "inoculated"])
+a1 <- aov(Acetoin ~ treatment)
+summary(a1)
+TukeyHSD(a1, "treatment")
+
+
+boxplot(Phenylacetonitrile ~ treatment)
+t.test(Phenylacetonitrile[treatment == "sterile"], Phenylacetonitrile[treatment == "inoculated"])
+
+boxplot(X4_Isothiocyanato_1_butene ~ treatment)
+t.test(X4_Isothiocyanato_1_butene[treatment == "sterile"], X4_Isothiocyanato_1_butene[treatment == "inoculated"])
+
+
+
+#

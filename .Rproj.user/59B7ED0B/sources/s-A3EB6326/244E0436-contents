@@ -1,0 +1,336 @@
+.libPaths()
+.libPaths("C:/R Packages")
+Sys.setenv(LANGUAGE='en')
+
+library(dplyr)
+library(HistData)
+library(vegan)
+library(devtools)
+library(tidyverse)
+library(scales)
+library(ggplot2)
+library(LabApplStat)
+library(emmeans)
+library(multcompView)
+library(Rmisc)
+library(sciplot)
+library(ggpubr)
+library(lme4)
+library(nlme)
+library(wesanderson)
+library(multcomp)
+library(readxl)
+library(plyr)
+library(RColorBrewer)
+library(dplyr)
+library(car)
+library(e1071)
+library(lme4)
+library(bbmle)
+library(generics)
+library(caret)
+library(leaps)
+library(emmeans)
+library(devtools)
+library(LabApplStat)
+install_github("bomarkussen/LabApplStat")
+
+1#28.04-2020
+#NONSTD
+setwd("C:/Users/lcm767/Desktop/Paddus 2018")
+
+d1<-read.table("FINAL.nonstd.csv",head = TRUE, sep=",")
+
+names(d1)[names(d1) == "warming"] <- "treatment"
+means_groupsnstd<-ddply(d1, .(Compound_group,time,trtmt), summarise, N=length(concentration), sum=sum(concentration),mean=mean(concentration), sd=sd(concentration),  se   = sd / sqrt(N)) #for the same ...BUT TO GET THE SUM ALSO AND there is NOT CI
+
+#STD
+d2<-read.table("FINAL.std.csv",head = TRUE, sep=",")
+names(d2)[names(d2) == "warming"] <- "treatment"
+means_groupsstd<-ddply(d2, .(Compound_group,time,trtmt), summarise, N=length(concentration), sum=sum(concentration),mean=mean(concentration), sd=sd(concentration),  se   = sd / sqrt(N)) #for the same ...BUT TO GET THE SUM ALSO AND there is NOT CI
+
+#total graph ntsd
+
+groupsnstd <-means_groupsnstd %>% 
+  filter(Compound_group!="Total")
+totalnstd <- means_groupsnstd%>% 
+  filter(Compound_group=="Total")
+names(groups)
+my_theme=theme(text = element_text(size=15))
+a<-ggplot(data=groupsnstd,aes(x=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity",aes(fill=Compound_group))+facet_wrap(. ~ time, ncol=9, nrow=1,scales = "free_y")+
+  geom_errorbar(data=totalnstd,aes(ymin= mean-se,
+                                   ymax= mean+se),
+                width=.2,                 
+                position="identity")+
+  scale_fill_brewer(palette="Set2")+ggtitle("Paddus nstd")+ theme(legend.title = element_blank())+display.brewer.all(colorblindFriendly = TRUE)+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+my_theme
+a
+#total graph std
+
+groupsstd <-means_groupsstd %>% 
+  filter(Compound_group!="Total")
+totalstd <- means_groupsstd%>% 
+  filter(Compound_group=="Total")
+names(groups)
+my_theme=theme(text = element_text(size=15))
+b<-ggplot(data=groupsstd,aes(x=trtmt, y=mean))  +theme_classic()+
+  geom_bar(stat="identity",aes(fill=Compound_group))+facet_wrap(. ~ time, ncol=9, nrow=1,scales = "free_y")+
+  geom_errorbar(data=totalstd,aes(ymin= mean-se,
+                                  ymax= mean+se),
+                width=.2,                 
+                position="identity")+
+  scale_fill_brewer(palette="Set2")+ggtitle("Paddus std")+ theme(legend.title = element_blank())+display.brewer.all(colorblindFriendly = TRUE)+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))+my_theme
+
+b
+
+
+d1$logconc <- log(d1$concentration+1) 
+d2$logconc <- log(d2$concentration+1) 
+names(d1)
+
+
+#### PATH ANALYSIS ####
+plot(DD(concentration~treatment*herbivory*Time,random=~Block/Plot,data=d1))
+plot(DD(concentration~treatment*herbivory*Time,random=~Block/Plot,data=d1)),"MSS"))
+plot(DD(y~treat,random=~animal,data=mydata)),"MSS")
+a<-lmer(concentration~treatment*herbivory*time+(1|Block/Plot),data=total)
+
+# SUBSET DATA
+#TOTAL
+GLV<-subset(d1,(Compound_group=="green leaf volatile"))
+HT<-subset(d1,(Compound_group=="HT"))
+HC<-subset(d1,(Compound_group=="hydrocarbons"))
+ISO<-subset(d1,(Compound_group=="isoprenoids"))
+MT<-subset(d1,(Compound_group=="MT"))
+other<-subset(d1,(Compound_group=="other"))
+OVOC<-subset(d1,(Compound_group=="oxygenated VOCs"))
+ST<-subset(d1,(Compound_group=="ST"))
+total<-subset(d1,(Compound_group=="Total"))
+names(total)
+#SUBSET DATA TIME1
+
+d1_t1<-subset(d1,(time=="t1"))
+GLV<-subset(d1_t1,(Compound_group=="green leaf volatile"))
+HT<-subset(d1_t1,(Compound_group=="HT"))
+HC<-subset(d1_t1,(Compound_group=="hydrocarbons"))
+ISO<-subset(d1_t1,(Compound_group=="isoprenoids"))
+MT<-subset(d1_t1,(Compound_group=="MT"))
+other<-subset(d1_t1,(Compound_group=="other"))
+OVOC<-subset(d1_t1,(Compound_group=="oxygenated VOCs"))
+ST<-subset(d1_t1,(Compound_group=="ST"))
+total<-subset(d1_t1,(Compound_group=="Total"))
+
+
+d1_t2<-subset(d1,(time=="t2"))
+d1_t3<-subset(d1,(time=="t3"))
+
+##################collinearity of data, covariates, VIF ########################
+library(tidyverse)
+library(caret)
+library(MASS)
+
+# Load the data
+# Split the data into training and test set
+set.seed(123)
+training.samples <- d1$concentration %>%
+  createDataPartition(p = 0.8, list = FALSE)
+train.data  <- d1[training.samples, ]
+test.data <- d1[-training.samples, ]
+names(train.data)
+train.data<-train.data[,c(14:16,33)] 
+test.data<-test.data[,c(14:16,33)] 
+
+# Build the model
+model1 <- lm(concentration ~., data = train.data)
+summary(model1)
+# Make predictions
+predictions <- model1 %>% predict(test.data)
+# Model performance
+data.frame(
+  RMSE = RMSE(predictions, test.data$concentration),
+  R2 = R2(predictions, test.data$concentration)
+)
+library(car)
+car::vif(model1)
+# Build a model excluding the tax variable
+model2 <- lm(concentration ~. -RH.bag, data = train.data)
+# Make predictions
+predictions <- model2 %>% predict(test.data)
+# Model performance
+data.frame(
+  RMSE = RMSE(predictions, test.data$concentration),
+  R2 = R2(predictions, test.data$concentration)
+)
+
+#############################################
+
+################Model selection######################
+??lme
+
+library(AICcmodavg) 
+library(nlme)
+library(lme4)
+names(total)
+total$Block=as.factor(total$Block)
+
+#specify weighting in order to stabilize non-constant variance if there exists any
+#call actually corresponds closely to the logarithmic transformation (variance is proportional to the mean)
+#lme("all the usual stuff", weights=varPower(fixed=1))
+#slightly more general.  lme("all the usual stuff", weights=varPower()) 
+#You may compare then with a test or AIC-values. 
+
+cm<-list()
+cm[[1]]<-lme(concentration~treatment+herbivory+time+
+              treatment:herbivory+
+              treatment:time+
+              herbivory:time,random= ~1|Block/Plot,data=total, method="ML",  weights=varPower())
+
+cm[[2]]<-lme(concentration~treatment+herbivory+time+
+               treatment:herbivory+
+               treatment:time+
+               herbivory:time,random= ~1|Block/Plot,data=total, method="ML",weights=varPower(fixed=1))
+
+Modenames<-c("cm1", "cm2") 
+aictab(cand.set=cm, modnames=Modenames)
+
+
+##################################   TEST MODEL ASSUMPTIONS   ##################################################
+#LME4
+total$Block=as.factor(total$Block)
+
+
+a<-lmer(concentration~treatment*herbivory*time+(1|Block/Plot),data=total)
+plot(a)
+plot(a, factor(Block)~resid(.), abline=0)
+plot(a, factor(Plot)~resid(.), abline=0)
+c<-qqnorm(resid(a))
+d<-qqline(resid(a))
+
+b<-lmer(logconc~treatment*herbivory*time+(1|Block/Plot),data=total)
+
+plot(b)
+e<-qqnorm(resid(b))
+f<-qqline(resid(b))
+plot(b, factor(Block)~resid(.), abline=0)
+plot(b, factor(Plot)~resid(.), abline=0)
+
+par(mfrow=c(1,2))
+plot(a)
+c<-qqnorm(resid(a))
+d<-qqline(resid(a))
+e<-qqnorm(resid(b))
+f<-qqline(resid(b))
+
+
+
+
+################NLME#####################
+a<-lme(concentration~treatment+herbivory+time+
+      treatment:herbivory+
+      treatment:time+
+      herbivory:time,random= ~1|Block/Plot,data=total, method="ML",  weights=varPower())
+plot(a)
+plot(a, factor(Block)~resid(.), abline=0)
+plot(a, factor(Plot)~resid(.), abline=0)
+c<-qqnorm(resid(a))
+d<-qqline(resid(a))
+
+
+b<-lme(logconc~treatment+herbivory+time+
+         treatment:herbivory+
+         treatment:time+
+         herbivory:time,random= ~1|Block/Plot,data=total, method="ML",  weights=varPower())
+
+plot(b)
+e<-qqnorm(resid(b))
+f<-qqline(resid(b))
+plot(b, factor(Block)~resid(.), abline=0)
+plot(b, factor(Plot)~resid(.), abline=0)
+
+par(mfrow=c(1,2))
+plot(a)
+c<-qqnorm(resid(a))
+d<-qqline(resid(a))
+e<-qqnorm(resid(b))
+f<-qqline(resid(b))
+#############################
+#RESULT = CHOOSE LOG CONCENTRATION!
+###########################################
+library(lmerTest)
+
+m1 <- lmer(logconc~treatment*herbivory*time+(1|Block/Plot),data=total)
+# Backward model reduction:
+# Here with dense code using update()
+drop1(m1,test="Chisq")
+drop1(m2 <- update(m1,.~.-treatment:herbivory:time),test="Chisq")
+drop1(m3 <- update(m2,.~.-treatment:time),test="Chisq")
+drop1(m4 <- update(m3,.~.-treatment:herbiovory),test="Chisq")
+
+full.model <- lm(Fertility ~., data = swiss)
+# Stepwise regression model
+step.model <- stepAIC(m1, direction = "both", 
+                      trace = FALSE)
+summary(step.model)
+
+
+cm<-list()
+cm[[1]]<-lme(logconc~treatment+herbivory+time+
+                  treatment:herbivory+
+                  treatment:time+
+                  herbivory:time,random= ~1|Block/Plot,data=total, method="ML",  weights=varPower())
+cm[[2]]<-lme(logconc~treatment+herbivory+time+
+               treatment:herbivory+
+               herbivory:time,random= ~1|Block/Plot,data=total, method="ML",  weights=varPower())
+cm[[3]]<-lme(logconc~treatment+herbivory+time+
+               herbivory:time,random= ~1|Block/Plot,data=total, method="ML",  weights=varPower())
+
+
+cm[[3]]<-lme(logconc~treatment+herbivory+time+
+               herbivory:time
+               treatment:time,random= ~1|Block/Plot,data=total, method="ML",  weights=varPower())
+cm[[3]]<-lme(logconc~treatment+herbivory+time+
+               treatment:herbivory,random= ~1|Block/Plot,data=total, method="ML",  weights=varPower())
+cm[[4]]<-lme(logconc~treatment+herbivory+time,random= ~1|Block/Plot,data=total, method="ML",  weights=varPower())
+
+cm[[5]]<-lme(logconc~1,random= ~1|Block/Plot,data=total, method="ML",  weights=varPower())
+
+
+
+cm[[3]]<-glm(polload~Bract+GA, poisson) 
+cm[[4]]<-glm(polload~GA+GSD, poisson) 
+cm[[5]]<-glm(polload~GSD, poisson) 
+cm[[6]]<-glm(polload~GA, poisson)
+cm[[7]]<-glm(polload~Bract, poisson) 
+cm[[8]]<-glm(polload~1, poisson) 
+Modenames<-c("cm1", "cm2", "cm3", "cm4") 
+aictab(cand.set=cm, modnames=Modenames)
+
+#different variables that have a similar predictive relationship with the outcome.#
+
+cor.test(d1$Par.average,d1$Temp.1m)
+#m1<-lmer(logconc~treatment*herbivory+time:herbivory+(1|block/plot),data=total, REML=TRUE)
+
+
+names(total)
+
+m1<-lme(logconc~treatment*herbivory*time, random=~1|block/plot,data=total, method="ML")
+
+
+# slightly more general. 
+
+lme("all the usual stuff", weights=varPower())
+#call actually corresponds closely to the logarithmic transformation (variance is proportional to the mean)
+lme("all the usual stuff", weights=varPower(fixed=1))
+
+#You may compare then with a test or AIC-values. 
+
+
+full.model <- lm(Fertility ~., data = swiss)
+# Stepwise regression model
+step.model <- stepAIC(full.model, direction = "both", 
+                      trace = FALSE)
+summary(step.model)
