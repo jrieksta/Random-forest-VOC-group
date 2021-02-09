@@ -187,7 +187,16 @@ t2_graph=ggplot(data=t2_plot, mapping = aes(x = reorder(VOC,Variable_importance)
 library(matrixTests)
 ########### T.TEST FOR EMIISIONS OF VARIABLE IMPRTANCE COMPOUNDSindividual VOCs ####################
 #See whether there have been changes in emission rate
-#take the VOCs that had the highest Variable importance, and perform a t.test 
+#take the VOCs that had the highest Variable importance, and perform a t.test , use library (MatrixTests), instead of creating a loop for each individual VOC compound
+
+#JULY 5 total
+July5_C<-subset(July5,(herbivory=="C")) #Y
+July5_H<-subset(July5,(herbivory=="H")) #Y
+
+July5_C1 <- July5_C[July5_C[,1]=="C",-1]
+July5_H1  <- July5_H[July5_H[,1]=="H",-1]
+
+July_5_result <- col_t_welch(July5_C1, July5_H1)
 
 #tobe added
 
