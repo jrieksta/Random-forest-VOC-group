@@ -14,6 +14,8 @@ library(randomForest)
 library(tidyverse)
 library(ggplot)
 library(ggpubr)
+library(matrixTests)
+  
 })
 
 #load data
@@ -163,7 +165,6 @@ merge<-ggarrange(t2_non_ell,t2_non_ell_ns,t2_ell,t2_ell_ns,nrow=2, ncol=2, commo
 
 
 
-
 ########## nicer visualisation of Variable importance ############
 #VARIABLE IMPORTANCE GRAPHS 
 varimp <- importance(t2_total, scale=TRUE)[,3] 
@@ -182,5 +183,39 @@ t2_graph=ggplot(data=t2_plot, mapping = aes(x = reorder(VOC,Variable_importance)
   labs(x=expression(VOC),
        y=expression(Variable~importance))+theme(legend.position = "none")+
   theme(panel.background = element_rect(colour = "black", size=1, fill=NA))
+
+library(matrixTests)
+########### T.TEST FOR EMIISIONS OF VARIABLE IMPRTANCE COMPOUNDSindividual VOCs ####################
+#See whether there have been changes in emission rate
+#take the VOCs that had the highest Variable importance, and perform a t.test 
+
+#tobe added
+
+dmnt <- ggplot(July5, aes(x=herbivory, y=DMNT, fill=herbivory)) +
+  geom_boxplot(alpha=0.5) +
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="black", fill="black") +ggtitle("   DMNT")+
+  theme(legend.position="none") +
+  scale_fill_manual(values = alpha(c("#440154FF", "#DCE318FF"), .3))+theme_classic()+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+
+
+MT2<- ggplot(July5, aes(x=herbivory, y=Linalool, fill=herbivory)) +ggtitle("linalool")+
+  geom_boxplot(alpha=0.5) +
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="black", fill="black") +
+  theme(legend.position="none") +
+  scale_fill_manual(values = alpha(c("#440154FF", "#DCE318FF"), .3))+theme_classic()+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+
+benz=ggplot(July5, aes(x=herbivory, y=Indole, fill=herbivory)) +ggtitle("indole")+
+  geom_boxplot(alpha=0.5) +
+  stat_summary(fun=mean, geom="point", shape=20, size=5, color="black", fill="black") +
+  theme(legend.position="none") +
+  scale_fill_manual(values = alpha(c("#440154FF", "#DCE318FF"), .3))+theme_classic()+my_theme+
+  labs(x=expression(Treatment),
+       y=expression(Emission~rate~(ng~cm^{"-2"}~h^{"-1"})))
+
+ggarrange(dmnt, MT2,benz,  nrow=3, ncol=1, common.legend = TRUE,labels = c("A", "B", "C"))
 
 #END#

@@ -85,7 +85,7 @@ prox <- t2_total_ns$proximity
 t2.prox<-cmdscale(1-t2_total$proximity) #cmdscale must be a distance matrix, so 1 - proximity can be used
 t2.prox_ns<-cmdscale(1-t2_total_ns$proximity) #cmdscale must be a distance matrix, so 1 - proximity can be used
 
-
+We will use
 #defauld MDS plot based on RF proximity  = Plot the scaling coordinates of the proximity matrix from randomForest.
 
 MDSplot(t2_total, t2$herbivory)
